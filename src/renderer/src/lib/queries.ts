@@ -1,0 +1,72 @@
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Project } from '@shared/types'
+import { supabase } from './supabase'
+
+/** 내 작품 목록 (최근 수정순) */
+export function useProjects() {
+  return useQuery({
+    queryKey: ['projects'],
+    queryFn: async (): Promise<Project[]> => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .order('updated_at', { ascending: false })
+      if (error) throw error
+      return data as Project[]
+    }
+  })
+}
+
+/** 새 작품 생성 (기본 폴더·라벨·상태 시드 RPC) */
+export function useCreateProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (title: string): Promise<Project> => {
+      const { data, error } = await supabase.rpc('create_project', { p_title: title })
+      if (error) throw error
+      return data as Project
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] })
+  })
+}
+
+/** 작품 이름 변경 */
+export function useRenameProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      const { error } = await supabase.from('projects').update({ title }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] })
+  })
+}
+
+/** 작품 삭제 (cascade) */
+export function useDeleteProject() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('projects').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] })
+  })
+}
+
+/** 단일 작품 로드 */
+export function useProject(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['project', projectId],
+    enabled: !!projectId,
+    queryFn: async (): Promise<Project> => {
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', projectId!)
+        .single()
+      if (error) throw error
+      return data as Project
+    }
+  })
+}

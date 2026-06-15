@@ -1,7 +1,15 @@
 node_modules/
 out/
 dist/
+release/
 .DS_Store
 *.log
 *.tsbuildinfo
 .omc/
+.env
+.env.local
+supabase/.branches/
+supabase/.temp/
+
+# 대용량 레퍼런스(깃 추적 제외)
+docs/Scrivener_Manual-Mac.pdf

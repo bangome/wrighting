@@ -1,0 +1,42 @@
+import {
+  Archive,
+  FileText,
+  Folder,
+  LayoutGrid,
+  Route,
+  User,
+  MapPin,
+  Box,
+  Building2,
+  Lightbulb,
+  type LucideIcon
+} from 'lucide-react'
+import type { Item } from '@shared/types'
+
+/** 아이템 종류별 아이콘 (스크린샷 트리 아이콘과 매칭) */
+export function iconFor(item: Pick<Item, 'type' | 'sheet_subtype' | 'icon'>): LucideIcon {
+  if (item.type === 'folder') {
+    if (item.icon === 'users') return User
+    if (item.icon === 'route') return Route
+    if (item.icon === 'archive') return Archive
+    return Folder
+  }
+  if (item.type === 'document') return FileText
+  if (item.type === 'plotboard') return Route
+  if (item.type === 'canvas') return LayoutGrid
+  if (item.type === 'sheet') {
+    switch (item.sheet_subtype) {
+      case 'place':
+        return MapPin
+      case 'item':
+        return Box
+      case 'organization':
+        return Building2
+      case 'concept':
+        return Lightbulb
+      default:
+        return User
+    }
+  }
+  return FileText
+}

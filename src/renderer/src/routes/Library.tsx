@@ -53,8 +53,13 @@ export function Library(): JSX.Element {
   )
 
   async function handleCreate(): Promise<void> {
-    const p = await createProject.mutateAsync('제목 없는 작품')
-    nav(`/p/${p.id}`)
+    try {
+      const p = await createProject.mutateAsync('제목 없는 작품')
+      nav(`/p/${p.id}`)
+    } catch (err) {
+      console.error('새 작품 생성 실패:', err)
+      alert(`새 작품을 만들지 못했습니다:\n${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
   return (

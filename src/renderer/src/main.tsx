@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { HashRouter } from 'react-router-dom'
 import App from './App'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './lib/auth'
 import { queryClient } from './lib/query'
 import { applyTheme, useUi } from './store/ui'
@@ -19,7 +20,9 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <HashRouter>
-          <App />
+          <ErrorBoundary>
+            <App />
+          </ErrorBoundary>
         </HashRouter>
       </AuthProvider>
     </QueryClientProvider>

@@ -115,26 +115,31 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
     setDirty(false)
   }, [editor, isLoading, doc, item.id])
 
-  // 본문 자동 저장 (디바운스) + 멘션 링크 동기화
-  useDebouncedEffect(
-    () => {
-      if (!editor || !dirty) return
-      const json = editor.getJSON() as RichDoc
-      const text = editor.getText()
-      save.mutate({
-        itemId: item.id,
-        projectId: project.id,
-        content: json,
-        text_plain: text,
-        word_count: text.trim() ? text.trim().split(/\s+/).length : 0,
-        char_count: editor.storage.characterCount.characters()
-      })
-      syncLinks.mutate({ fromItem: item.id, toItemIds: collectMentionIds(json) })
-      setDirty(false)
-    },
-    [dirty, charCount],
-    900
-  )
+  // 본문 저장 + 멘션 링크 동기화 — 디바운스와 언마운트 flush가 공유하는 실제 동작.
+  // ref로 최신 클로저(editor/dirty/item)를 담아, 언마운트 시점에도 정확히 현재 문서를 저장한다.
+  const persist = useRef<() => void>(() => {})
+  persist.current = (): void => {
+    if (!editor || !dirty) return
+    const json = editor.getJSON() as RichDoc
+    const text = editor.getText()
+    save.mutate({
+      itemId: item.id,
+      projectId: project.id,
+      content: json,
+      text_plain: text,
+      word_count: text.trim() ? text.trim().split(/\s+/).length : 0,
+      char_count: editor.storage.characterCount.characters()
+    })
+    syncLinks.mutate({ fromItem: item.id, toItemIds: collectMentionIds(json) })
+    setDirty(false)
+  }
+
+  // 본문 자동 저장 (디바운스)
+  useDebouncedEffect(() => persist.current(), [dirty, charCount], 900)
+
+  // 에디터를 떠날 때(그래프 등으로 이동/문서 전환) 대기 중인 저장·멘션 동기화를 즉시 반영.
+  // 이게 없으면 멘션 직후 디바운스(900ms) 안에 화면을 옮길 때 링크가 생성되지 않는다.
+  useEffect(() => () => persist.current(), [])
 
   // 제목 자동 저장
   function commitTitle(): void {

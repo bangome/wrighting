@@ -37,7 +37,8 @@ export function useAddLink(projectId: string | undefined) {
       })
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['links', projectId] })
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['links', projectId] }),
+    onError: (e) => console.error('[links] 링크 추가 실패:', e)
   })
 }
 
@@ -80,7 +81,8 @@ export function useSyncMentionLinks(projectId: string | undefined) {
         if (error) throw error
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['links', projectId] })
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['links', projectId] }),
+    onError: (e) => console.error('[links] 멘션 링크 동기화 실패:', e)
   })
 }
 

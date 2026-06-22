@@ -27,8 +27,8 @@ export type FolderView = 'grid' | 'list' | 'corkboard' | 'timeline'
 /** 작업(할일) 버킷 */
 export type TaskBucket = 'inbox' | 'today' | 'upcoming'
 
-/** 링크 관계 종류 — 그래프/백링크/복선의 데이터 소스 */
-export type LinkRel = 'relation' | 'plant' | 'payoff' | 'ref'
+/** 링크 관계 종류 — 그래프/백링크/복선의 데이터 소스. 'parent'는 트리 상하관계(상위→하위) */
+export type LinkRel = 'relation' | 'plant' | 'payoff' | 'ref' | 'parent'
 
 /** 사용자 프로필 + 동기화 대상 설정 */
 export interface Profile {
@@ -62,6 +62,8 @@ export interface Item {
   parent_id: string | null
   type: ItemType
   sheet_subtype: SheetSubtype | null
+  /** 노트(type='notes') 전용: 연결된 대상 항목. null이면 독립 노트 */
+  linked_item_id: string | null
   title: string
   icon: string | null
   /** 카드 요약(그리드·코르크보드·리스트에 노출) */
@@ -141,7 +143,7 @@ export interface Foreshadow {
 export interface BoardNode {
   id: string
   board_item_id: string
-  kind: 'card' | 'group' | 'ref'
+  kind: 'card' | 'group' | 'ref' | 'shape'
   x: number
   y: number
   w: number
@@ -151,10 +153,20 @@ export interface BoardNode {
   color: string | null
   /** kind=ref 일 때 참조하는 아이템 */
   ref_item_id: string | null
-  /** 플롯보드 막/단계 인덱스 (null이면 자유 배치/캔버스) */
+  /** kind='shape' 일 때 도형 종류 (rectangle/ellipse/diamond/roundRect) */
+  shape: string | null
+  /** 플롯보드 막/단계 인덱스 (null이면 자유 배치/캔버스). col_id 도입 후 레거시 */
   lane: number | null
-  /** 레인 내 카드 순서 */
+  /** 컬럼(kind='group') 내 카드 순서, 또는 컬럼 자체의 순서 */
   ord: number
+  /** kind='card' 일 때 소속 컬럼(kind='group') id. null이면 미배치/캔버스 */
+  col_id: string | null
+  /** 파트 카드 태그 */
+  tags: string[]
+  /** 카드에 연결된 문서(document) 항목 id 목록 */
+  doc_ids: string[]
+  /** 카드가 언급(멘션)하는 항목 id 목록 */
+  mention_ids: string[]
 }
 
 /** 플롯보드/캔버스 엣지 */
@@ -198,6 +210,76 @@ export interface Snapshot {
   content: RichDoc
   label: string | null
   created_at: string
+}
+
+/** Claude Code 하네스 에이전트(.claude/agents/<name>.md) */
+export interface HarnessAgent {
+  id: string
+  owner: string
+  /** null = 공용(모든 작품 기본), 값이 있으면 해당 작품 전용 */
+  project_id: string | null
+  name: string
+  description: string
+  model: string | null
+  body: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+/** Claude Code 하네스 스킬(.claude/skills/<name>/SKILL.md) */
+export interface HarnessSkill {
+  id: string
+  owner: string
+  project_id: string | null
+  name: string
+  description: string
+  body: string
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
+/** 메인 하네스 지침 (프로젝트 루트 CLAUDE.md) — 작품당 하나인 싱글톤 */
+export interface HarnessDoc {
+  id: string
+  owner: string
+  /** null = 공용(기본 템플릿), 값이 있으면 해당 작품 전용 */
+  project_id: string | null
+  body: string
+  updated_at: string
+}
+
+/**
+ * 하네스 변경 이력 (지침·에이전트·스킬). append-only.
+ * 본문에 섞지 않고 별도 보관하며 .claude/ 로 내보내지 않는다(토큰 절약).
+ */
+export interface HarnessHistory {
+  id: string
+  owner: string
+  project_id: string | null
+  target_kind: 'doc' | 'agent' | 'skill' | 'bundle'
+  /** 원본 행 id (삭제돼도 이력은 남으므로 dangling 가능) */
+  target_id: string | null
+  /** 항목 이름(에이전트·스킬 슬러그, 지침은 CLAUDE.md) */
+  target_name: string
+  action: 'create' | 'update' | 'delete' | 'import'
+  /** 사람이 읽는 변경 요약 */
+  summary: string
+  /** 변경 시점 본문 스냅샷(되돌리기용). null 가능 */
+  snapshot: string | null
+  created_at: string
+}
+
+/** 에이전트 model 선택지 (null=상속) */
+export const HARNESS_MODELS = ['sonnet', 'opus', 'haiku'] as const
+
+/** 데스크톱 브리지가 가져오기/내보내기로 주고받는 하네스 묶음 */
+export interface HarnessBundle {
+  agents: { name: string; description: string; model: string | null; body: string }[]
+  skills: { name: string; description: string; body: string }[]
+  /** 루트 CLAUDE.md 본문. 없으면 null */
+  claudeMd: string | null
 }
 
 /** 시트 하위 종류별 라벨 (구버전 'concept' 포함) */

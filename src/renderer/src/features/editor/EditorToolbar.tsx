@@ -1,3 +1,5 @@
+import { useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { Editor } from '@tiptap/react'
 import {
   AlignCenter,
@@ -5,6 +7,7 @@ import {
   AlignLeft,
   AlignRight,
   Bold,
+  ChevronsUpDown,
   Italic,
   List,
   ListOrdered,
@@ -15,18 +18,16 @@ import {
   Underline as UnderlineIcon,
   Undo2
 } from 'lucide-react'
+import { useEditorPrefs, FONT_FAMILIES, LINE_HEIGHTS } from '../../store/editorPrefs'
 
 interface Props {
   editor: Editor
   charCount: number
 }
 
-const HEADINGS = [
-  { label: '본문', level: 0 },
-  { label: '제목 1', level: 1 },
-  { label: '제목 2', level: 2 },
-  { label: '제목 3', level: 3 }
-] as const
+/** 본문 표시 크기 pt 선택지 (12pt = 기준 배율 1.0). fontScale = pt / 12 */
+const FONT_PTS = [10, 11, 12, 13, 14, 16, 18, 20, 24]
+const PT_BASE = 12
 
 function Btn({
   active,
@@ -58,9 +59,87 @@ function Sep(): JSX.Element {
   return <span className="mx-1 h-5 w-px bg-border" />
 }
 
-/** 리치텍스트 툴바 — 글꼴/정렬/서식/목록 (스크린샷 67e276). 한국어 도구는 M7. */
+interface Opt {
+  value: string
+  label: string
+}
+
+/** 값 + 위아래 화살표(펼침) 드롭다운 — 글씨체·크기·줄간격 공용 */
+function ToolbarDropdown({
+  value,
+  display,
+  options,
+  onChange,
+  title,
+  minWidth
+}: {
+  value: string
+  display?: string
+  options: Opt[]
+  onChange: (v: string) => void
+  title: string
+  minWidth: number
+}): JSX.Element {
+  const btnRef = useRef<HTMLButtonElement>(null)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const cur = options.find((o) => o.value === value)
+
+  function toggle(): void {
+    if (pos) return setPos(null)
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setPos({ top: r.bottom + 4, left: r.left, width: r.width })
+  }
+
+  return (
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        title={title}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={toggle}
+        style={{ minWidth }}
+        className="flex h-7 items-center gap-1 rounded-[6px] bg-transparent px-1.5 text-sm text-text-muted hover:bg-bg-hover hover:text-text"
+      >
+        <span className="flex-1 truncate text-left text-text">{display ?? cur?.label ?? ''}</span>
+        <ChevronsUpDown size={13} className="shrink-0 text-text-faint" />
+      </button>
+      {pos &&
+        createPortal(
+          <>
+            <div className="fixed inset-0 z-[60]" onClick={() => setPos(null)} />
+            <div
+              style={{ position: 'fixed', top: pos.top, left: pos.left, minWidth: pos.width }}
+              className="z-[61] max-h-64 overflow-y-auto rounded-app border border-border bg-bg-elev py-1 shadow-[var(--shadow)]"
+            >
+              {options.map((o) => (
+                <button
+                  key={o.value}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    onChange(o.value)
+                    setPos(null)
+                  }}
+                  className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-bg-hover ${
+                    o.value === value ? 'text-text' : 'text-text-muted'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              ))}
+            </div>
+          </>,
+          document.body
+        )}
+    </>
+  )
+}
+
+/** 리치텍스트 툴바 — 글씨체/크기/줄간격 · 정렬 · 서식 · 목록 */
 export function EditorToolbar({ editor, charCount }: Props): JSX.Element {
-  const curHeading = HEADINGS.find((h) => h.level > 0 && editor.isActive('heading', { level: h.level }))
+  const prefs = useEditorPrefs()
+  const curPt = Math.round(prefs.fontScale * PT_BASE)
 
   return (
     <div className="flex flex-1 items-center gap-0.5 overflow-x-auto px-3 py-1.5">
@@ -72,26 +151,29 @@ export function EditorToolbar({ editor, charCount }: Props): JSX.Element {
       </Btn>
       <Sep />
 
-      <select
-        value={curHeading?.level ?? 0}
-        onChange={(e) => {
-          const level = Number(e.target.value)
-          if (level === 0) editor.chain().focus().setParagraph().run()
-          else
-            editor
-              .chain()
-              .focus()
-              .toggleHeading({ level: level as 1 | 2 | 3 })
-              .run()
-        }}
-        className="h-7 rounded-[6px] border border-border bg-bg-elev px-2 text-sm outline-none"
-      >
-        {HEADINGS.map((h) => (
-          <option key={h.level} value={h.level}>
-            {h.label}
-          </option>
-        ))}
-      </select>
+      {/* 본문 표시 — 글씨체 · 크기 · 줄간격 (펼침 드롭다운) */}
+      <ToolbarDropdown
+        title="글씨체"
+        minWidth={96}
+        value={prefs.fontFamily}
+        options={FONT_FAMILIES.map((f) => ({ value: f.value, label: f.label }))}
+        onChange={(v) => prefs.set({ fontFamily: v })}
+      />
+      <ToolbarDropdown
+        title="글씨 크기"
+        minWidth={66}
+        value={String(curPt)}
+        display={`${curPt} pt`}
+        options={FONT_PTS.map((pt) => ({ value: String(pt), label: `${pt} pt` }))}
+        onChange={(v) => prefs.set({ fontScale: Number(v) / PT_BASE })}
+      />
+      <ToolbarDropdown
+        title="줄간격"
+        minWidth={62}
+        value={String(prefs.lineHeight)}
+        options={LINE_HEIGHTS.map((l) => ({ value: String(l.value), label: String(l.value) }))}
+        onChange={(v) => prefs.set({ lineHeight: Number(v) })}
+      />
       <Sep />
 
       <Btn
@@ -109,18 +191,18 @@ export function EditorToolbar({ editor, charCount }: Props): JSX.Element {
         <Italic size={16} />
       </Btn>
       <Btn
-        title="밑줄"
-        active={editor.isActive('underline')}
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-      >
-        <UnderlineIcon size={16} />
-      </Btn>
-      <Btn
         title="취소선"
         active={editor.isActive('strike')}
         onClick={() => editor.chain().focus().toggleStrike().run()}
       >
         <Strikethrough size={16} />
+      </Btn>
+      <Btn
+        title="밑줄"
+        active={editor.isActive('underline')}
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+      >
+        <UnderlineIcon size={16} />
       </Btn>
       <Sep />
 
@@ -189,7 +271,7 @@ export function EditorToolbar({ editor, charCount }: Props): JSX.Element {
         <TableIcon size={16} />
       </Btn>
 
-      <span className="ml-auto text-xs text-text-faint">{charCount.toLocaleString()} 자</span>
+      <span className="ml-auto shrink-0 text-xs text-text-faint">{charCount.toLocaleString()} 자</span>
     </div>
   )
 }

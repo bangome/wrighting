@@ -13,6 +13,9 @@ const TABLE_QUERY: Record<string, (projectId: string) => unknown[][]> = {
   tasks: (p) => [['tasks', p]],
   board_nodes: () => [],
   board_edges: () => [],
+  harness_agents: (p) => [['harness_agents', p]],
+  harness_skills: (p) => [['harness_skills', p]],
+  harness_docs: (p) => [['harness_docs', p]],
   projects: (p) => [['projects'], ['project', p]]
 }
 

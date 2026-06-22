@@ -1,10 +1,9 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   FileText,
   Folder,
   LayoutGrid,
   Route,
-  StickyNote,
   Sheet,
   ChevronRight,
   User,
@@ -30,7 +29,6 @@ export interface CreateChoice {
 /** 최상위 생성 항목 (시트는 별도 서브메뉴) */
 const TOP_CHOICES: CreateChoice[] = [
   { type: 'document', label: '새 문서', shortcut: '⌘N', Icon: FileText },
-  { type: 'notes', label: '새 노트', shortcut: '⌘⇧N', Icon: StickyNote },
   { type: 'plotboard', label: '새 플롯보드', shortcut: '⌘⇧P', Icon: Route },
   { type: 'canvas', label: '새 캔버스', shortcut: '⌘⇧V', Icon: LayoutGrid },
   { type: 'folder', label: '새 폴더', shortcut: '⌘⇧G', Icon: Folder }
@@ -81,6 +79,16 @@ function MenuRow({
 /** 생성 메뉴 — 새 문서/노트/시트(▶)/플롯보드/캔버스/폴더 */
 export function CreateMenu({ onChoose, onClose }: Props): JSX.Element {
   const [sheetOpen, setSheetOpen] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const openSheet = (): void => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    setSheetOpen(true)
+  }
+  // 부모↔서브메뉴 사이 이동 중 닫힘 방지 (약간의 지연)
+  const scheduleClose = (): void => {
+    if (closeTimer.current) clearTimeout(closeTimer.current)
+    closeTimer.current = setTimeout(() => setSheetOpen(false), 120)
+  }
   const pick = (c: CreateChoice): void => {
     onChoose(c)
     onClose()
@@ -91,17 +99,23 @@ export function CreateMenu({ onChoose, onClose }: Props): JSX.Element {
       <div className="fixed inset-0 z-20" onClick={onClose} />
       <div className="absolute right-0 top-7 z-30 w-60 rounded-app border border-border bg-bg-elev py-1.5 shadow-[var(--shadow)]">
         <MenuRow choice={TOP_CHOICES[0]} onClick={() => pick(TOP_CHOICES[0])} />
-        <MenuRow choice={TOP_CHOICES[1]} onClick={() => pick(TOP_CHOICES[1])} />
 
         {/* 새 시트 — 서브메뉴 */}
-        <div className="relative" onMouseEnter={() => setSheetOpen(true)} onMouseLeave={() => setSheetOpen(false)}>
-          <button className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-bg-hover">
+        <div className="relative" onMouseEnter={openSheet} onMouseLeave={scheduleClose}>
+          <button
+            className={`flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-bg-hover ${sheetOpen ? 'bg-bg-hover' : ''}`}
+            onClick={openSheet}
+          >
             <Sheet size={16} className="text-text-muted" />
             <span className="flex-1">새 시트</span>
             <ChevronRight size={14} className="text-text-faint" />
           </button>
           {sheetOpen && (
-            <div className="absolute right-full top-0 z-40 mr-1 w-44 rounded-app border border-border bg-bg-elev py-1.5 shadow-[var(--shadow)]">
+            <div
+              className="absolute left-full top-0 z-40 w-44 rounded-app border border-border bg-bg-elev py-1.5 shadow-[var(--shadow)]"
+              onMouseEnter={openSheet}
+              onMouseLeave={scheduleClose}
+            >
               {SHEET_CHOICES.map((c) => (
                 <MenuRow key={c.sheetSubtype} choice={c} onClick={() => pick(c)} />
               ))}
@@ -109,7 +123,7 @@ export function CreateMenu({ onChoose, onClose }: Props): JSX.Element {
           )}
         </div>
 
-        {TOP_CHOICES.slice(2).map((c) => (
+        {TOP_CHOICES.slice(1).map((c) => (
           <MenuRow key={c.label} choice={c} onClick={() => pick(c)} />
         ))}
       </div>

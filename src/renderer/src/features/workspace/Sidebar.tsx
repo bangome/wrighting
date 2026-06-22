@@ -1,6 +1,17 @@
 import { NavLink, useNavigate } from 'react-router-dom'
-import { Home, Network, CheckCircle2, Trash2, Download, MessageCircle, Settings } from 'lucide-react'
+import {
+  Home,
+  Network,
+  CheckCircle2,
+  StickyNote,
+  Bot,
+  Trash2,
+  Download,
+  MessageCircle,
+  Settings
+} from 'lucide-react'
 import type { Project } from '@shared/types'
+import { useItems } from '../../lib/items'
 import { Binder } from './Binder'
 
 interface Props {
@@ -16,6 +27,8 @@ function navClass({ isActive }: { isActive: boolean }): string {
 export function Sidebar({ project }: Props): JSX.Element {
   const nav = useNavigate()
   const base = `/p/${project.id}`
+  const { data: items } = useItems(project.id)
+  const noteCount = (items ?? []).filter((i) => i.type === 'notes').length
 
   return (
     <aside className="flex h-full flex-col border-r border-border bg-bg-sidebar">
@@ -41,6 +54,17 @@ export function Sidebar({ project }: Props): JSX.Element {
         </NavLink>
         <NavLink to={`${base}/tasks`} className={navClass}>
           <CheckCircle2 size={16} /> 작업
+        </NavLink>
+        <NavLink to={`${base}/notes`} className={navClass}>
+          <StickyNote size={16} /> 노트
+          {noteCount > 0 && (
+            <span className="ml-auto rounded-full bg-bg-active px-1.5 text-xs text-text-muted">
+              {noteCount}
+            </span>
+          )}
+        </NavLink>
+        <NavLink to={`${base}/harness`} className={navClass}>
+          <Bot size={16} /> 하네스
         </NavLink>
       </div>
 

@@ -11,6 +11,7 @@ import type { Item, Project, RichDoc } from '@shared/types'
 import { useDocument, useSaveDocument } from '../../lib/documents'
 import { useItems, useUpdateItem } from '../../lib/items'
 import { useSyncMentionLinks } from '../../lib/links'
+import { useAutoSnapshot } from '../../lib/snapshots'
 import { EditorToolbar } from './EditorToolbar'
 import { DocTools } from './DocTools'
 import { useDebouncedEffect } from './useDebounced'
@@ -46,6 +47,7 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
   const save = useSaveDocument()
   const updateItem = useUpdateItem(project.id)
   const syncLinks = useSyncMentionLinks(project.id)
+  const maybeSnapshot = useAutoSnapshot(item.id, project.id)
   const prefs = useEditorPrefs()
   const nav = useNavigate()
   const [title, setTitle] = useState(item.title)
@@ -131,6 +133,8 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
       char_count: editor.storage.characterCount.characters()
     })
     syncLinks.mutate({ fromItem: item.id, toItemIds: collectMentionIds(json) })
+    // 저장될 때마다 자동 버전 기록 (간격·변경 조건은 훅 내부에서 판단)
+    maybeSnapshot(json)
     setDirty(false)
   }
 

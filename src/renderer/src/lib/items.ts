@@ -44,6 +44,8 @@ export interface NewItemInput {
   type: ItemType
   sheetSubtype?: SheetSubtype
   title?: string
+  /** 노트 생성 시 연결할 대상 항목 */
+  linkedItemId?: string | null
 }
 
 /** 트리에서 같은 부모의 마지막 정렬값 다음을 계산 */
@@ -67,6 +69,7 @@ export function useCreateItem(projectId: string | undefined) {
           sheet_subtype: input.type === 'sheet' ? (input.sheetSubtype ?? 'character') : null,
           title: input.title ?? defaultTitle(input.type, input.sheetSubtype),
           folder_view: input.type === 'folder' ? 'grid' : null,
+          linked_item_id: input.type === 'notes' ? (input.linkedItemId ?? null) : null,
           sort_order: sort
         })
         .select('*')
@@ -132,6 +135,84 @@ export function useUpdateItem(projectId: string | undefined) {
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['items', projectId] })
   })
+}
+
+export interface MoveInput {
+  dragId: string
+  /** 새 부모 (루트면 null) */
+  newParentId: string | null
+  /** 이 형제 바로 앞에 삽입 (null이면 맨 끝에 추가) */
+  beforeId?: string | null
+}
+
+/** 이동 결과를 순수 함수로 계산 — 변경된 행만 추려 반환 */
+function computeMove(
+  items: Item[],
+  { dragId, newParentId, beforeId }: MoveInput
+): { next: Item[]; updates: { id: string; sort_order: number; parent_id: string | null }[] } {
+  const dragItem = items.find((i) => i.id === dragId)
+  if (!dragItem) return { next: items, updates: [] }
+
+  const siblings = items
+    .filter((i) => i.parent_id === newParentId && i.id !== dragId)
+    .sort((a, b) => a.sort_order - b.sort_order)
+
+  let insertAt = beforeId ? siblings.findIndex((s) => s.id === beforeId) : siblings.length
+  if (insertAt < 0) insertAt = siblings.length
+
+  const ordered = [...siblings]
+  ordered.splice(insertAt, 0, dragItem)
+
+  const byId = new Map(items.map((i) => [i.id, { ...i }]))
+  const updates: { id: string; sort_order: number; parent_id: string | null }[] = []
+  ordered.forEach((it, idx) => {
+    const changedParent = it.id === dragId && it.parent_id !== newParentId
+    if (it.sort_order !== idx || changedParent) {
+      updates.push({ id: it.id, sort_order: idx, parent_id: newParentId })
+      const c = byId.get(it.id)!
+      c.sort_order = idx
+      c.parent_id = newParentId
+    }
+  })
+  return { next: Array.from(byId.values()), updates }
+}
+
+/** 트리 내 드래그앤드롭 이동 (재정렬 + 재부모) */
+export function useMoveItem(projectId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: MoveInput) => {
+      const prev = qc.getQueryData<Item[]>(['items', projectId]) ?? []
+      const { next, updates } = computeMove(prev, input)
+      if (!updates.length) return
+      // 낙관적 갱신 (동기) — 즉시 트리 반영
+      qc.setQueryData<Item[]>(['items', projectId], next)
+      try {
+        for (const u of updates) {
+          const { error } = await supabase
+            .from('items')
+            .update({ sort_order: u.sort_order, parent_id: u.parent_id })
+            .eq('id', u.id)
+          if (error) throw error
+        }
+      } catch (e) {
+        qc.setQueryData(['items', projectId], prev)
+        throw e
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['items', projectId] })
+  })
+}
+
+/** ancestorId가 nodeId의 조상인지 (자기 자신 포함) — 폴더를 자기 하위로 드롭 방지 */
+export function isAncestor(items: Item[], ancestorId: string, nodeId: string): boolean {
+  const byId = new Map(items.map((i) => [i.id, i]))
+  let cur: Item | undefined = byId.get(nodeId)
+  while (cur) {
+    if (cur.id === ancestorId) return true
+    cur = cur.parent_id ? byId.get(cur.parent_id) : undefined
+  }
+  return false
 }
 
 /** soft-delete (휴지통으로) */

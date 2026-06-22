@@ -57,6 +57,7 @@ export function useSyncMentionLinks(projectId: string | undefined) {
         .select('id,to_item')
         .eq('project_id', projectId!)
         .eq('from_item', fromItem)
+        .eq('rel', 'ref')
         .eq('auto', true)
       if (selErr) throw selErr
 
@@ -83,6 +84,48 @@ export function useSyncMentionLinks(projectId: string | undefined) {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['links', projectId] }),
     onError: (e) => console.error('[links] 멘션 링크 동기화 실패:', e)
+  })
+}
+
+/**
+ * 트리 상하관계 링크 동기화 — 항목(childId)이 다른 항목(parentId) 하위로 이동하면
+ * 두 항목을 'parent' 링크(상위→하위, auto=true)로 연결한다.
+ * parentId가 null이면(루트/폴더 하위) 기존 상하관계 링크를 제거한다.
+ * 부모는 유일하므로 childId당 자동 'parent' 링크는 최대 1개만 유지한다.
+ */
+export function useSyncHierarchyLink(projectId: string | undefined) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ childId, parentId }: { childId: string; parentId: string | null }) => {
+      const { data: existing, error: selErr } = await supabase
+        .from('links')
+        .select('id,from_item')
+        .eq('project_id', projectId!)
+        .eq('to_item', childId)
+        .eq('rel', 'parent')
+        .eq('auto', true)
+      if (selErr) throw selErr
+
+      // 이미 올바른 부모와 연결돼 있으면 유지, 나머지는 제거
+      const keep = parentId ? (existing ?? []).find((l) => l.from_item === parentId) : undefined
+      const toRemove = (existing ?? []).filter((l) => l.id !== keep?.id).map((l) => l.id)
+      if (toRemove.length) {
+        const { error } = await supabase.from('links').delete().in('id', toRemove)
+        if (error) throw error
+      }
+      if (parentId && !keep) {
+        const { error } = await supabase.from('links').insert({
+          project_id: projectId,
+          from_item: parentId,
+          to_item: childId,
+          rel: 'parent' as LinkRel,
+          auto: true
+        })
+        if (error) throw error
+      }
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['links', projectId] }),
+    onError: (e) => console.error('[links] 상하관계 링크 동기화 실패:', e)
   })
 }
 

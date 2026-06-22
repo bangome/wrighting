@@ -1,0 +1,29 @@
+{
+  "name": "wrighting-mcp",
+  "version": "0.2.0",
+  "description": "wrighting 클라우드(Supabase) 데이터를 Claude Code에 노출하는 MCP 서버 — 하네스(CLAUDE.md·에이전트·스킬) + 소설 콘텐츠(원고·시트·플롯·링크) 읽기/쓰기",
+  "type": "module",
+  "bin": {
+    "wrighting-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "@supabase/supabase-js": "^2.47.10",
+    "dotenv": "^16.4.7",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}

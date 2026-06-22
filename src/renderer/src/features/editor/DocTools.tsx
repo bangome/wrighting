@@ -3,11 +3,11 @@ import type { Editor } from '@tiptap/react'
 import { Clock, Download, Languages, Repeat2, Search, Settings2, Share2, Sigma } from 'lucide-react'
 import type { Item, Project, RichDoc } from '@shared/types'
 import { hanjaCandidates } from '../../lib/hanja'
-import { useCreateSnapshot, useSnapshots } from '../../lib/snapshots'
 import { useCreateShare, useRevokeShare, useShare, shareUrl } from '../../lib/shares'
 import { useEditorPrefs, FONT_FAMILIES, LINE_HEIGHTS, PLATFORMS } from '../../store/editorPrefs'
 import { exportDocument, type ExportFormat } from '../export/exporters'
 import { RepetitionPanel } from './RepetitionPanel'
+import { HistoryPanel } from './HistoryPanel'
 
 const SPECIALS = ['…', '—', '·', '※', '○', '●', '◇', '◆', '□', '■', '★', '☆', '「', '」', '『', '』', '〈', '〉', '《', '》', '‥', '→', '←', '↑', '↓', '“', '”', '‘', '’']
 
@@ -19,7 +19,7 @@ const EXPORTS: { fmt: ExportFormat; label: string }[] = [
   { fmt: 'hwp', label: '한글 (.hwpx, 베타)' }
 ]
 
-type Pop = 'hanja' | 'special' | 'history' | 'export' | 'settings' | 'repeat' | 'share' | null
+type Pop = 'hanja' | 'special' | 'export' | 'settings' | 'repeat' | 'share' | null
 
 function Popover({ children, onClose }: { children: React.ReactNode; onClose: () => void }): JSX.Element {
   return (
@@ -44,9 +44,8 @@ export function DocTools({
   onOpenSearch: () => void
 }): JSX.Element {
   const [pop, setPop] = useState<Pop>(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const prefs = useEditorPrefs()
-  const { data: snapshots } = useSnapshots(item.id)
-  const createSnapshot = useCreateSnapshot(item.id)
   const { data: share } = useShare(item.id)
   const createShare = useCreateShare(project.id)
   const revokeShare = useRevokeShare(project.id)
@@ -137,42 +136,18 @@ export function DocTools({
         )}
       </div>
 
-      {/* 문서 기록 */}
-      <div className="relative">
-        <button className="icon-btn" title="문서 기록" onClick={() => toggle('history')}>
-          <Clock size={16} />
-        </button>
-        {pop === 'history' && (
-          <Popover onClose={() => setPop(null)}>
-            <button
-              className="mb-2 w-full rounded-[var(--radius-sm)] bg-accent py-1.5 text-sm text-white"
-              onClick={() =>
-                createSnapshot.mutate({ projectId: project.id, content: editor.getJSON() as RichDoc })
-              }
-            >
-              현재 상태 저장
-            </button>
-            <div className="max-h-60 overflow-y-auto">
-              {(snapshots ?? []).length === 0 ? (
-                <p className="px-1 py-2 text-xs text-text-faint">저장된 기록이 없습니다.</p>
-              ) : (
-                snapshots!.map((s) => (
-                  <button
-                    key={s.id}
-                    className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-bg-hover"
-                    onClick={() => {
-                      editor.commands.setContent((s.content as object) ?? '', { emitUpdate: true })
-                      setPop(null)
-                    }}
-                  >
-                    {new Date(s.created_at).toLocaleString('ko-KR')}
-                  </button>
-                ))
-              )}
-            </div>
-          </Popover>
-        )}
-      </div>
+      {/* 문서 기록 (비교·복원) */}
+      <button className="icon-btn" title="문서 기록" onClick={() => setHistoryOpen(true)}>
+        <Clock size={16} />
+      </button>
+      {historyOpen && (
+        <HistoryPanel
+          editor={editor}
+          project={project}
+          item={item}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
 
       {/* 내보내기 */}
       <div className="relative">

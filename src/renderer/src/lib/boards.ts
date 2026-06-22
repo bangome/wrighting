@@ -50,8 +50,13 @@ export function useAddBoardNode(boardItemId: string | undefined, projectId: stri
           body: input.body ?? '',
           color: input.color ?? null,
           ref_item_id: input.ref_item_id ?? null,
+          shape: input.shape ?? null,
           lane: input.lane ?? null,
-          ord: input.ord ?? 0
+          ord: input.ord ?? 0,
+          col_id: input.col_id ?? null,
+          tags: input.tags ?? [],
+          doc_ids: input.doc_ids ?? [],
+          mention_ids: input.mention_ids ?? []
         })
         .select('*')
         .single()

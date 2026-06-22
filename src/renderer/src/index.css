@@ -110,6 +110,14 @@ button {
   background: transparent;
 }
 
+/* 스크롤바 숨김 (탭바 등 휠 가로 스크롤용) */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chromium/WebKit */
+}
+
 /* 공통 아이콘 버튼 (스크린샷 탑바·툴바) */
 .icon-btn {
   display: inline-flex;

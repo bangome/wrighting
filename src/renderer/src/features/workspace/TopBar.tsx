@@ -5,6 +5,7 @@ import { useItems } from '../../lib/items'
 import { pathToItem } from '../../lib/tree'
 import { useUi } from '../../store/ui'
 import { Timer } from './Timer'
+import { TasksPopover } from '../tasks/TasksPopover'
 
 export function TopBar({ project }: { project: Project }): JSX.Element {
   const nav = useNavigate()
@@ -63,6 +64,8 @@ export function TopBar({ project }: { project: Project }): JSX.Element {
       </button>
 
       <Timer />
+
+      <TasksPopover project={project} />
 
       <button
         className={`icon-btn ${rightPane.type === 'item' ? 'text-accent' : ''}`}

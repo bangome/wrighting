@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Flag, Plus, X } from 'lucide-react'
-import type { Project, Task, TaskBucket } from '@shared/types'
+import type { Project, Task } from '@shared/types'
 import { useItems } from '../../lib/items'
 import { useAddTask, useDeleteTask, useTasks, useUpdateTask } from '../../lib/tasks'
 
@@ -20,7 +20,36 @@ function isToday(d: string | null): boolean {
 }
 function isUpcoming(d: string | null): boolean {
   if (!d) return false
-  return new Date(d).getTime() > Date.now()
+  return !isToday(d) && new Date(d).getTime() > Date.now()
+}
+
+/** 로컬 기준 YYYY-MM-DD (date 컬럼 저장용) */
+function ymd(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function todayStr(): string {
+  return ymd(new Date())
+}
+function tomorrowStr(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  return ymd(d)
+}
+
+type Placement = 'inbox' | 'today' | 'upcoming'
+
+/** 필터/배치값 → 저장할 마감일·버킷 */
+function placementPatch(p: Placement): { due_date: string | null; bucket: Placement } {
+  if (p === 'today') return { due_date: todayStr(), bucket: 'today' }
+  if (p === 'upcoming') return { due_date: tomorrowStr(), bucket: 'upcoming' }
+  return { due_date: null, bucket: 'inbox' }
+}
+
+/** 작업의 현재 배치 추정 */
+function placementOf(t: { due_date: string | null }): Placement {
+  if (isToday(t.due_date)) return 'today'
+  if (isUpcoming(t.due_date)) return 'upcoming'
+  return 'inbox'
 }
 
 export function TasksPage({ project }: { project: Project }): JSX.Element {
@@ -67,11 +96,36 @@ export function TasksPage({ project }: { project: Project }): JSX.Element {
             {item}
           </button>
         )}
-        {t.due_date && (
-          <span className="flex items-center gap-1 text-xs text-text-faint">
-            <Flag size={11} /> {new Date(t.due_date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
-          </span>
+        {placementOf(t) === 'upcoming' ? (
+          <input
+            type="date"
+            value={t.due_date ?? ''}
+            min={todayStr()}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v) update.mutate({ id: t.id, patch: { due_date: v, bucket: 'upcoming' } })
+            }}
+            title="예정 날짜"
+            className="rounded-[var(--radius-sm)] border border-border bg-bg-elev px-1.5 py-0.5 text-xs text-text-muted outline-none"
+          />
+        ) : (
+          t.due_date && (
+            <span className="flex items-center gap-1 text-xs text-text-faint">
+              <Flag size={11} />{' '}
+              {new Date(t.due_date).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
+            </span>
+          )
         )}
+        <select
+          value={placementOf(t)}
+          onChange={(e) => update.mutate({ id: t.id, patch: placementPatch(e.target.value as Placement) })}
+          title="작업 이동"
+          className="rounded-[var(--radius-sm)] border border-border bg-bg-elev px-1.5 py-0.5 text-xs text-text-muted outline-none"
+        >
+          <option value="inbox">보관함</option>
+          <option value="today">오늘</option>
+          <option value="upcoming">예정</option>
+        </select>
         <button
           className="opacity-0 group-hover:opacity-100 text-text-faint hover:text-danger"
           onClick={() => del.mutate(t.id)}
@@ -107,7 +161,10 @@ export function TasksPage({ project }: { project: Project }): JSX.Element {
         onSubmit={(e) => {
           e.preventDefault()
           if (draft.trim()) {
-            add.mutate({ title: draft.trim(), bucket: filter === 'all' ? 'inbox' : (filter as TaskBucket) })
+            // 현재 필터에 맞는 배치(마감일)로 추가 → 같은 필터 목록에 바로 보이도록
+            const place: Placement = filter === 'all' ? 'inbox' : (filter as Placement)
+            const { due_date, bucket } = placementPatch(place)
+            add.mutate({ title: draft.trim(), bucket, due: due_date })
             setDraft('')
           }
         }}

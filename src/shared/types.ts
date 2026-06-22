@@ -10,8 +10,16 @@ export type RichDoc = { type: 'doc'; content?: unknown[] } | null
 /** 바인더 트리 노드의 종류 */
 export type ItemType = 'folder' | 'document' | 'sheet' | 'plotboard' | 'canvas' | 'notes'
 
-/** 시트 하위 종류 (인물·장소·아이템·조직·개념) */
-export type SheetSubtype = 'character' | 'place' | 'item' | 'organization' | 'concept'
+/** 시트 하위 종류 (캐릭터·이벤트·조직·아이템·장소·세계관·기타). 'concept'는 구버전 호환용. */
+export type SheetSubtype =
+  | 'character'
+  | 'event'
+  | 'organization'
+  | 'item'
+  | 'place'
+  | 'worldview'
+  | 'other'
+  | 'concept'
 
 /** 폴더 표시 뷰 */
 export type FolderView = 'grid' | 'list' | 'corkboard' | 'timeline'
@@ -192,11 +200,25 @@ export interface Snapshot {
   created_at: string
 }
 
-/** 시트 하위 종류 라벨 */
+/** 시트 하위 종류별 라벨 (구버전 'concept' 포함) */
+export const SHEET_SUBTYPE_LABEL: Record<SheetSubtype, string> = {
+  character: '캐릭터',
+  event: '이벤트',
+  organization: '조직',
+  item: '아이템',
+  place: '장소',
+  worldview: '세계관',
+  other: '기타',
+  concept: '세계관'
+}
+
+/** '새 시트' 메뉴에 노출되는 생성 가능한 하위 종류 (스크린샷 순서) */
 export const SHEET_SUBTYPES: { value: SheetSubtype; label: string }[] = [
-  { value: 'character', label: '인물' },
-  { value: 'place', label: '장소' },
-  { value: 'item', label: '아이템' },
-  { value: 'organization', label: '조직' },
-  { value: 'concept', label: '개념' }
+  { value: 'character', label: SHEET_SUBTYPE_LABEL.character },
+  { value: 'event', label: SHEET_SUBTYPE_LABEL.event },
+  { value: 'organization', label: SHEET_SUBTYPE_LABEL.organization },
+  { value: 'item', label: SHEET_SUBTYPE_LABEL.item },
+  { value: 'place', label: SHEET_SUBTYPE_LABEL.place },
+  { value: 'worldview', label: SHEET_SUBTYPE_LABEL.worldview },
+  { value: 'other', label: SHEET_SUBTYPE_LABEL.other }
 ]

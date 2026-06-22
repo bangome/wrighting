@@ -3,8 +3,11 @@ import { EditorContent, useEditor, type Content } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Plus, X } from 'lucide-react'
-import type { Item, Project, RichDoc, SheetSubtype } from '@shared/types'
-import { SHEET_SUBTYPES } from '@shared/types'
+import type { Item, Project, RichDoc } from '@shared/types'
+import { SHEET_SUBTYPE_LABEL } from '@shared/types'
+
+/** 모든 시트가 공통으로 갖는 '분류' 속성 키 (자유 속성 목록에서는 제외) */
+const CATEGORY_KEY = '분류'
 import { useSheet, useSaveSheet } from '../../lib/sheets'
 import { useUpdateItem } from '../../lib/items'
 import { useDebouncedEffect } from '../editor/useDebounced'
@@ -63,7 +66,7 @@ export function SheetView({ project, item }: { project: Project; item: Item }): 
   )
 
   const subtypeLabel = useMemo(
-    () => SHEET_SUBTYPES.find((s) => s.value === item.sheet_subtype)?.label ?? '시트',
+    () => (item.sheet_subtype ? SHEET_SUBTYPE_LABEL[item.sheet_subtype] : '시트'),
     [item.sheet_subtype]
   )
 
@@ -110,8 +113,17 @@ export function SheetView({ project, item }: { project: Project; item: Item }): 
         className="mb-3 block w-full bg-transparent text-3xl font-bold outline-none"
       />
 
-      {/* 설명 · 태그 · 속성 */}
+      {/* 분류 · 설명 · 태그 · 속성 (모든 시트 공통) */}
       <div className="mb-6 flex flex-col gap-2.5 border-b border-border pb-5 text-sm">
+        <div className="flex items-center gap-3">
+          <span className="w-16 shrink-0 text-text-muted">분류</span>
+          <input
+            value={attrs[CATEGORY_KEY] ?? ''}
+            onChange={(e) => setAttr(CATEGORY_KEY, e.target.value)}
+            placeholder={`${subtypeLabel} 분류`}
+            className="flex-1 bg-transparent outline-none placeholder:text-text-faint"
+          />
+        </div>
         <div className="flex items-start gap-3">
           <span className="w-16 shrink-0 pt-1 text-text-muted">설명</span>
           <textarea
@@ -154,7 +166,9 @@ export function SheetView({ project, item }: { project: Project; item: Item }): 
           </div>
         </div>
 
-        {Object.entries(attrs).map(([k, v]) => (
+        {Object.entries(attrs)
+          .filter(([k]) => k !== CATEGORY_KEY)
+          .map(([k, v]) => (
           <div key={k} className="flex items-center gap-3">
             <input
               defaultValue={k}

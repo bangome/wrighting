@@ -99,10 +99,13 @@ function defaultTitle(type: ItemType, subtype?: SheetSubtype): string {
   if (type === 'sheet') {
     const labels: Record<SheetSubtype, string> = {
       character: '새 캐릭터',
-      place: '새 장소',
-      item: '새 아이템',
+      event: '새 이벤트',
       organization: '새 조직',
-      concept: '새 개념'
+      item: '새 아이템',
+      place: '새 장소',
+      worldview: '새 세계관',
+      other: '새 시트',
+      concept: '새 세계관'
     }
     return labels[subtype ?? 'character']
   }

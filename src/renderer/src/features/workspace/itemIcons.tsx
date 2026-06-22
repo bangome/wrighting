@@ -9,6 +9,9 @@ import {
   Box,
   Building2,
   Lightbulb,
+  Calendar,
+  Globe,
+  Layers,
   StickyNote,
   type LucideIcon
 } from 'lucide-react'
@@ -28,14 +31,20 @@ export function iconFor(item: Pick<Item, 'type' | 'sheet_subtype' | 'icon'>): Lu
   if (item.type === 'canvas') return LayoutGrid
   if (item.type === 'sheet') {
     switch (item.sheet_subtype) {
+      case 'event':
+        return Calendar
       case 'place':
         return MapPin
       case 'item':
         return Box
       case 'organization':
         return Building2
+      case 'worldview':
+        return Globe
       case 'concept':
         return Lightbulb
+      case 'other':
+        return Layers
       default:
         return User
     }

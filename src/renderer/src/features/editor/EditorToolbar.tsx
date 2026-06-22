@@ -11,6 +11,7 @@ import {
   Quote,
   Redo2,
   Strikethrough,
+  Table as TableIcon,
   Underline as UnderlineIcon,
   Undo2
 } from 'lucide-react'
@@ -173,6 +174,19 @@ export function EditorToolbar({ editor, charCount }: Props): JSX.Element {
         onClick={() => editor.chain().focus().toggleBlockquote().run()}
       >
         <Quote size={16} />
+      </Btn>
+      <Sep />
+
+      <Btn
+        title={editor.isActive('table') ? '표 삭제' : '표 삽입 (3×3)'}
+        active={editor.isActive('table')}
+        onClick={() =>
+          editor.isActive('table')
+            ? editor.chain().focus().deleteTable().run()
+            : editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+        }
+      >
+        <TableIcon size={16} />
       </Btn>
 
       <span className="ml-auto text-xs text-text-faint">{charCount.toLocaleString()} 자</span>

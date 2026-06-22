@@ -74,8 +74,8 @@ export function useCreateItem(projectId: string | undefined) {
       if (error) throw error
 
       const item = data as Item
-      // 본문 테이블 1:1 행 생성
-      if (item.type === 'document') {
+      // 본문 테이블 1:1 행 생성 (노트도 documents 테이블 재사용)
+      if (item.type === 'document' || item.type === 'notes') {
         await supabase
           .from('documents')
           .insert({ item_id: item.id, project_id: item.project_id, content: null })
@@ -93,6 +93,7 @@ export function useCreateItem(projectId: string | undefined) {
 function defaultTitle(type: ItemType, subtype?: SheetSubtype): string {
   if (type === 'folder') return '새 폴더'
   if (type === 'document') return '제목 없는 문서'
+  if (type === 'notes') return '새 노트'
   if (type === 'plotboard') return '새 플롯보드'
   if (type === 'canvas') return '새 캔버스'
   if (type === 'sheet') {

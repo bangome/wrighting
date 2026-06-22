@@ -1,11 +1,11 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { HashRouter } from 'react-router-dom'
 import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AuthProvider } from './lib/auth'
-import { queryClient } from './lib/query'
+import { queryClient, queryPersister, persistMaxAge } from './lib/query'
 import { applyTheme, useUi } from './store/ui'
 import './index.css'
 
@@ -17,7 +17,10 @@ window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', ()
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister: queryPersister, maxAge: persistMaxAge }}
+    >
       <AuthProvider>
         <HashRouter>
           <ErrorBoundary>
@@ -25,6 +28,6 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
           </ErrorBoundary>
         </HashRouter>
       </AuthProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </React.StrictMode>
 )

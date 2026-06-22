@@ -49,7 +49,9 @@ export function useAddBoardNode(boardItemId: string | undefined, projectId: stri
           title: input.title ?? '새 카드',
           body: input.body ?? '',
           color: input.color ?? null,
-          ref_item_id: input.ref_item_id ?? null
+          ref_item_id: input.ref_item_id ?? null,
+          lane: input.lane ?? null,
+          ord: input.ord ?? 0
         })
         .select('*')
         .single()

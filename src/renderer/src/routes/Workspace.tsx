@@ -4,7 +4,8 @@ import { Sidebar } from '../features/workspace/Sidebar'
 import { TopBar } from '../features/workspace/TopBar'
 import { ProjectHome } from '../features/workspace/ProjectHome'
 import { ItemView } from '../features/workspace/ItemView'
-import { GraphPanel } from '../features/graph/GraphPanel'
+import { TabBar } from '../features/workspace/TabBar'
+import { RightPane } from '../features/workspace/RightPane'
 import { GraphPage } from '../features/graph/GraphPage'
 import { TasksPage } from '../features/tasks/TasksPage'
 import { TrashPage } from '../features/workspace/TrashPage'
@@ -17,7 +18,7 @@ import { useRealtimeSync } from '../lib/realtime'
 export function Workspace(): JSX.Element {
   const { projectId } = useParams()
   const { data: project, isLoading, error } = useProject(projectId)
-  const rightPanel = useUi((s) => s.rightPanel)
+  const rightPane = useUi((s) => s.rightPane)
   useRealtimeSync(projectId)
 
   if (isLoading) {
@@ -32,12 +33,13 @@ export function Workspace(): JSX.Element {
   }
 
   return (
-    <div className="grid h-full grid-cols-[260px_1fr] bg-bg">
+    <div className="grid h-full grid-cols-[260px_1fr] overflow-hidden bg-bg">
       <Sidebar project={project} />
-      <div className="grid min-w-0 grid-rows-[auto_1fr]">
+      <div className="grid min-h-0 min-w-0 grid-rows-[auto_auto_1fr] overflow-hidden">
         <TopBar project={project} />
+        <TabBar project={project} />
         <div
-          className={`grid min-h-0 ${rightPanel === 'graph' ? 'grid-cols-[1fr_360px]' : 'grid-cols-1'}`}
+          className={`grid min-h-0 ${rightPane.type !== 'none' ? 'grid-cols-[1fr_minmax(320px,420px)]' : 'grid-cols-1'}`}
         >
           <main className="min-w-0 overflow-hidden">
             <Routes>
@@ -51,11 +53,7 @@ export function Workspace(): JSX.Element {
               <Route path="feedback" element={<Placeholder title="피드백 보내기" />} />
             </Routes>
           </main>
-          {rightPanel === 'graph' && (
-            <div className="border-l border-border">
-              <GraphPanel project={project} />
-            </div>
-          )}
+          {rightPane.type !== 'none' && <RightPane project={project} />}
         </div>
       </div>
       <CommandPalette project={project} />

@@ -133,10 +133,141 @@ button {
 /* Tiptap 에디터 본문 */
 .ProseMirror {
   outline: none;
-  line-height: 1.85;
+  line-height: inherit; /* 줄간격은 컨테이너(에디터 설정)에서 제어 */
 }
 .ProseMirror p {
   margin: 0 0 0.9em;
+}
+
+/* Tailwind preflight가 마커/들여쓰기를 지우므로 본문 리스트·인용·제목을 명시 */
+.ProseMirror ul,
+.ProseMirror ol {
+  margin: 0 0 0.9em;
+  padding-left: 1.5em;
+}
+.ProseMirror ul {
+  list-style: disc;
+}
+.ProseMirror ol {
+  list-style: decimal;
+}
+.ProseMirror li {
+  margin: 0.2em 0;
+}
+.ProseMirror li > p {
+  margin: 0;
+}
+.ProseMirror blockquote {
+  margin: 0 0 0.9em;
+  padding-left: 1em;
+  border-left: 3px solid var(--border-strong);
+  color: var(--text-muted);
+}
+.ProseMirror h1 {
+  font-size: 1.6em;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+.ProseMirror h2 {
+  font-size: 1.35em;
+  font-weight: 700;
+  margin: 1em 0 0.5em;
+}
+.ProseMirror h3 {
+  font-size: 1.15em;
+  font-weight: 600;
+  margin: 1em 0 0.5em;
+}
+
+/* 본문 멘션 (@항목) */
+.ProseMirror .mention {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-radius: 4px;
+  padding: 0 3px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* 표 */
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+  table-layout: fixed;
+}
+.ProseMirror th,
+.ProseMirror td {
+  border: 1px solid var(--border-strong);
+  padding: 6px 8px;
+  vertical-align: top;
+  position: relative;
+}
+.ProseMirror th {
+  background: var(--bg-elev-2);
+  font-weight: 600;
+}
+.ProseMirror .selectedCell::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent-soft);
+  opacity: 0.4;
+  pointer-events: none;
+}
+.ProseMirror .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  cursor: col-resize;
+}
+
+/* 찾기 하이라이트 */
+.search-match {
+  background: rgb(250 204 21 / 0.32);
+  border-radius: 2px;
+}
+.search-match--active {
+  background: rgb(250 204 21 / 0.7);
+  color: #1c1c1e;
+}
+
+/* 멘션 제안 팝업 */
+.mention-popup {
+  min-width: 200px;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 4px;
+}
+.mention-popup__row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  padding: 6px 8px;
+  border-radius: 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mention-popup__row:hover,
+.mention-popup__row.is-active {
+  background: var(--bg-hover);
+}
+.mention-popup__empty {
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text-faint);
 }
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

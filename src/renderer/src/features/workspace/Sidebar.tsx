@@ -21,7 +21,7 @@ export function Sidebar({ project }: Props): JSX.Element {
     <aside className="flex h-full flex-col border-r border-border bg-bg-sidebar">
       {/* 작품 헤더 */}
       <button
-        className="flex items-center gap-2 px-3 py-3 text-left hover:bg-bg-hover"
+        className="flex shrink-0 items-center gap-2 px-3 py-3 text-left hover:bg-bg-hover"
         onClick={() => nav('/')}
         title="라이브러리로"
       >
@@ -32,7 +32,7 @@ export function Sidebar({ project }: Props): JSX.Element {
       </button>
 
       {/* 상단 네비 */}
-      <div className="flex flex-col gap-0.5 px-1.5 pb-2">
+      <div className="flex shrink-0 flex-col gap-0.5 px-1.5 pb-2">
         <NavLink to={base} end className={navClass}>
           <Home size={16} /> 작품 홈
         </NavLink>
@@ -49,8 +49,8 @@ export function Sidebar({ project }: Props): JSX.Element {
       {/* 바인더 트리 */}
       <Binder projectId={project.id} />
 
-      {/* 하단 네비 */}
-      <div className="flex flex-col gap-0.5 border-t border-border px-1.5 py-2">
+      {/* 하단 네비 (스크롤과 무관하게 푸터 고정) */}
+      <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-border px-1.5 py-2">
         <NavLink to={`${base}/trash`} className={navClass}>
           <Trash2 size={16} /> 휴지통
         </NavLink>

@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import { Clock, Download, Languages, Settings2, Sigma } from 'lucide-react'
+import { Clock, Download, Languages, Repeat2, Search, Settings2, Share2, Sigma } from 'lucide-react'
 import type { Item, Project, RichDoc } from '@shared/types'
 import { hanjaCandidates } from '../../lib/hanja'
 import { useCreateSnapshot, useSnapshots } from '../../lib/snapshots'
-import { useEditorPrefs } from '../../store/editorPrefs'
+import { useCreateShare, useRevokeShare, useShare, shareUrl } from '../../lib/shares'
+import { useEditorPrefs, FONT_FAMILIES, LINE_HEIGHTS, PLATFORMS } from '../../store/editorPrefs'
 import { exportDocument, type ExportFormat } from '../export/exporters'
+import { RepetitionPanel } from './RepetitionPanel'
 
 const SPECIALS = ['…', '—', '·', '※', '○', '●', '◇', '◆', '□', '■', '★', '☆', '「', '」', '『', '』', '〈', '〉', '《', '》', '‥', '→', '←', '↑', '↓', '“', '”', '‘', '’']
 
@@ -14,10 +16,10 @@ const EXPORTS: { fmt: ExportFormat; label: string }[] = [
   { fmt: 'epub', label: 'EPUB (.epub)' },
   { fmt: 'md', label: '마크다운 (.md)' },
   { fmt: 'txt', label: '텍스트 (.txt)' },
-  { fmt: 'hwp', label: '한글 오피스 (.hwp)' }
+  { fmt: 'hwp', label: '한글 (.hwpx, 베타)' }
 ]
 
-type Pop = 'hanja' | 'special' | 'history' | 'export' | 'settings' | null
+type Pop = 'hanja' | 'special' | 'history' | 'export' | 'settings' | 'repeat' | 'share' | null
 
 function Popover({ children, onClose }: { children: React.ReactNode; onClose: () => void }): JSX.Element {
   return (
@@ -33,16 +35,21 @@ function Popover({ children, onClose }: { children: React.ReactNode; onClose: ()
 export function DocTools({
   editor,
   project,
-  item
+  item,
+  onOpenSearch
 }: {
   editor: Editor
   project: Project
   item: Item
+  onOpenSearch: () => void
 }): JSX.Element {
   const [pop, setPop] = useState<Pop>(null)
   const prefs = useEditorPrefs()
   const { data: snapshots } = useSnapshots(item.id)
   const createSnapshot = useCreateSnapshot(item.id)
+  const { data: share } = useShare(item.id)
+  const createShare = useCreateShare(project.id)
+  const revokeShare = useRevokeShare(project.id)
 
   const sel = editor.state.selection
   const selectedText = editor.state.doc.textBetween(sel.from, sel.to, ' ')
@@ -52,6 +59,30 @@ export function DocTools({
 
   return (
     <div className="flex items-center gap-0.5">
+      {/* 찾기/바꾸기 */}
+      <button className="icon-btn" title="찾기/바꾸기 (⌘F)" onClick={onOpenSearch}>
+        <Search size={16} />
+      </button>
+
+      {/* 반복 표현 */}
+      <div className="relative">
+        <button className="icon-btn" title="반복 표현 점검" onClick={() => toggle('repeat')}>
+          <Repeat2 size={16} />
+        </button>
+        {pop === 'repeat' && (
+          <Popover onClose={() => setPop(null)}>
+            <RepetitionPanel
+              editor={editor}
+              onPick={(word) => {
+                editor.chain().setSearchTerm(word).run()
+                setPop(null)
+                onOpenSearch()
+              }}
+            />
+          </Popover>
+        )}
+      </div>
+
       {/* 한자 변환 */}
       <div className="relative">
         <button className="icon-btn" title="한자 변환" onClick={() => toggle('hanja')}>
@@ -166,6 +197,55 @@ export function DocTools({
         )}
       </div>
 
+      {/* 공유 링크 */}
+      <div className="relative">
+        <button className="icon-btn" title="공유 링크" onClick={() => toggle('share')}>
+          <Share2 size={16} />
+        </button>
+        {pop === 'share' && (
+          <Popover onClose={() => setPop(null)}>
+            {share ? (
+              <div className="flex flex-col gap-2">
+                <div className="px-1 text-xs text-text-faint">공유 링크가 활성화되어 있습니다.</div>
+                <div className="flex items-center gap-1">
+                  <input
+                    readOnly
+                    value={shareUrl(share.token)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="flex-1 rounded-[var(--radius-sm)] border border-border bg-bg px-2 py-1 text-xs outline-none"
+                  />
+                  <button
+                    className="rounded-[var(--radius-sm)] border border-border px-2 py-1 text-xs hover:bg-bg-hover"
+                    onClick={() => void navigator.clipboard.writeText(shareUrl(share.token))}
+                  >
+                    복사
+                  </button>
+                </div>
+                <button
+                  className="text-left text-xs text-danger hover:underline"
+                  onClick={() => revokeShare.mutate({ id: share.id, itemId: item.id })}
+                >
+                  공유 중단
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <div className="px-1 text-xs text-text-faint">
+                  링크가 있는 누구나 이 문서를 읽을 수 있습니다.
+                </div>
+                <button
+                  className="w-full rounded-[var(--radius-sm)] bg-accent py-1.5 text-sm text-white disabled:opacity-50"
+                  disabled={createShare.isPending}
+                  onClick={() => createShare.mutate(item.id)}
+                >
+                  {createShare.isPending ? '생성 중…' : '공유 링크 만들기'}
+                </button>
+              </div>
+            )}
+          </Popover>
+        )}
+      </div>
+
       {/* 에디터 설정 */}
       <div className="relative">
         <button className="icon-btn" title="에디터 설정" onClick={() => toggle('settings')}>
@@ -185,6 +265,49 @@ export function DocTools({
                     +
                   </button>
                 </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>글꼴</span>
+                <select
+                  value={prefs.fontFamily}
+                  onChange={(e) => prefs.set({ fontFamily: e.target.value })}
+                  className="h-7 rounded-[var(--radius-sm)] border border-border bg-bg-elev px-2 text-xs outline-none"
+                >
+                  {FONT_FAMILIES.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>줄간격</span>
+                <select
+                  value={prefs.lineHeight}
+                  onChange={(e) => prefs.set({ lineHeight: Number(e.target.value) })}
+                  className="h-7 rounded-[var(--radius-sm)] border border-border bg-bg-elev px-2 text-xs outline-none"
+                >
+                  {LINE_HEIGHTS.map((l) => (
+                    <option key={l.value} value={l.value}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex items-center justify-between">
+                <span>연재 플랫폼</span>
+                <select
+                  value={prefs.platform}
+                  onChange={(e) => prefs.set({ platform: e.target.value })}
+                  className="h-7 rounded-[var(--radius-sm)] border border-border bg-bg-elev px-2 text-xs outline-none"
+                >
+                  {PLATFORMS.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                      {p.goal ? ` (${p.goal.toLocaleString()}자)` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
               <Toggle label="포커스 모드" on={prefs.focusMode} onChange={(v) => prefs.set({ focusMode: v })} />
               <Toggle label="네이티브 맞춤법 검사" on={prefs.spellcheck} onChange={(v) => prefs.set({ spellcheck: v })} />

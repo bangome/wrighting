@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, PanelRight, Search } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Columns2, Network, Search } from 'lucide-react'
 import type { Project } from '@shared/types'
 import { useItems } from '../../lib/items'
 import { pathToItem } from '../../lib/tree'
@@ -10,7 +10,17 @@ export function TopBar({ project }: { project: Project }): JSX.Element {
   const nav = useNavigate()
   const { itemId } = useParams()
   const { data: items } = useItems(project.id)
-  const { rightPanel, setRightPanel, setPaletteOpen } = useUi()
+  const { rightPane, setRightPane, tabs, setPaletteOpen } = useUi()
+
+  // 분할: 현재 메인 항목 또는 가장 최근 다른 탭을 우측에 띄운다
+  function toggleSplit(): void {
+    if (rightPane.type === 'item') {
+      setRightPane({ type: 'none' })
+      return
+    }
+    const companion = tabs.find((t) => t !== itemId) ?? itemId ?? tabs[0]
+    if (companion) setRightPane({ type: 'item', itemId: companion })
+  }
 
   const crumbs = itemId && items ? pathToItem(items, itemId) : []
 
@@ -55,11 +65,18 @@ export function TopBar({ project }: { project: Project }): JSX.Element {
       <Timer />
 
       <button
-        className={`icon-btn ${rightPanel === 'graph' ? 'text-accent' : ''}`}
-        onClick={() => setRightPanel(rightPanel === 'graph' ? 'none' : 'graph')}
+        className={`icon-btn ${rightPane.type === 'item' ? 'text-accent' : ''}`}
+        onClick={toggleSplit}
+        title="분할 보기 (다른 항목을 나란히)"
+      >
+        <Columns2 size={16} />
+      </button>
+      <button
+        className={`icon-btn ${rightPane.type === 'graph' ? 'text-accent' : ''}`}
+        onClick={() => setRightPane(rightPane.type === 'graph' ? { type: 'none' } : { type: 'graph' })}
         title="관계 그래프 패널"
       >
-        <PanelRight size={16} />
+        <Network size={16} />
       </button>
     </header>
   )

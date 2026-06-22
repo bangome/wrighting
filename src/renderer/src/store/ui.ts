@@ -2,12 +2,22 @@ import { create } from 'zustand'
 
 export type Theme = 'dark' | 'light' | 'system'
 
+/** 우측 분할 패널에 표시할 내용 */
+export type RightPane =
+  | { type: 'none' }
+  | { type: 'graph' }
+  | { type: 'item'; itemId: string }
+
 interface UiState {
   theme: Theme
   setTheme: (t: Theme) => void
-  /** 워크스페이스 우측 패널(그래프 등) 표시 여부 */
-  rightPanel: 'none' | 'graph'
-  setRightPanel: (p: 'none' | 'graph') => void
+  /** 열려 있는 문서 탭(아이템 id, 연 순서) */
+  tabs: string[]
+  openTab: (itemId: string) => void
+  closeTab: (itemId: string) => void
+  /** 우측 분할 패널 */
+  rightPane: RightPane
+  setRightPane: (p: RightPane) => void
   /** 커맨드 팔레트 */
   paletteOpen: boolean
   setPaletteOpen: (v: boolean) => void
@@ -38,8 +48,21 @@ export const useUi = create<UiState>((set) => ({
     applyTheme(t)
     set({ theme: t })
   },
-  rightPanel: 'none',
-  setRightPanel: (p) => set({ rightPanel: p }),
+  tabs: [],
+  openTab: (itemId) =>
+    set((s) => (s.tabs.includes(itemId) ? s : { tabs: [...s.tabs, itemId] })),
+  closeTab: (itemId) =>
+    set((s) => {
+      const tabs = s.tabs.filter((t) => t !== itemId)
+      // 우측 패널이 닫은 항목을 보고 있었다면 패널도 정리
+      const rightPane =
+        s.rightPane.type === 'item' && s.rightPane.itemId === itemId
+          ? ({ type: 'none' } as RightPane)
+          : s.rightPane
+      return { tabs, rightPane }
+    }),
+  rightPane: { type: 'none' },
+  setRightPane: (p) => set({ rightPane: p }),
   paletteOpen: false,
   setPaletteOpen: (v) => set({ paletteOpen: v })
 }))

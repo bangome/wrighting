@@ -1,10 +1,75 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { LayoutGrid, List as ListIcon, StickyNote, GanttChartSquare } from 'lucide-react'
+import { BookOpen, Download, LayoutGrid, List as ListIcon, StickyNote, GanttChartSquare } from 'lucide-react'
 import type { FolderView as FolderViewType, Item, Project } from '@shared/types'
 import { useItems, useUpdateItem } from '../../lib/items'
 import { useLabels, useStatuses } from '../../lib/labels'
 import { childrenOf } from '../../lib/tree'
+import { documentDescendants, fetchPieces } from '../../lib/folderExport'
+import { exportPieces, type ExportFormat } from '../export/exporters'
 import { iconFor } from '../workspace/itemIcons'
+import { ContinuousView } from './ContinuousView'
+
+const COMPILE_FORMATS: { fmt: ExportFormat; label: string }[] = [
+  { fmt: 'docx', label: 'MS Word (.docx)' },
+  { fmt: 'epub', label: 'EPUB (.epub)' },
+  { fmt: 'md', label: '마크다운 (.md)' },
+  { fmt: 'txt', label: '텍스트 (.txt)' },
+  { fmt: 'hwp', label: '한글 (.hwpx, 베타)' }
+]
+
+/** 폴더 하위 문서를 회차 순서로 묶어 내보내는 메뉴 */
+function CompileMenu({ project, folder }: { project: Project; folder: Item }): JSX.Element {
+  const { data: items } = useItems(project.id)
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  async function run(fmt: ExportFormat): Promise<void> {
+    setBusy(true)
+    try {
+      const docs = documentDescendants(items ?? [], folder.id)
+      if (docs.length === 0) {
+        alert('내보낼 문서가 폴더에 없습니다.')
+        return
+      }
+      const pieces = await fetchPieces(docs)
+      await exportPieces(folder.title, pieces, fmt)
+    } catch (e) {
+      alert(`내보내기 실패: ${e instanceof Error ? e.message : String(e)}`)
+    } finally {
+      setBusy(false)
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border px-3 py-1.5 text-sm hover:border-border-strong disabled:opacity-50"
+        onClick={() => setOpen((v) => !v)}
+        disabled={busy}
+      >
+        <Download size={15} /> {busy ? '내보내는 중…' : '합본 내보내기'}
+      </button>
+      {open && !busy && (
+        <>
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-9 z-30 w-56 rounded-app border border-border bg-bg-elev p-1.5 shadow-[var(--shadow)]">
+            {COMPILE_FORMATS.map((f) => (
+              <button
+                key={f.fmt}
+                className="block w-full rounded px-3 py-2 text-left text-sm hover:bg-bg-hover"
+                onClick={() => void run(f.fmt)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
 
 const TABS: { value: FolderViewType; label: string; Icon: typeof LayoutGrid }[] = [
   { value: 'grid', label: '그리드', Icon: LayoutGrid },
@@ -21,17 +86,40 @@ export function FolderView({ project, folder }: { project: Project; folder: Item
   const update = useUpdateItem(project.id)
   const children = childrenOf(items ?? [], folder.id)
   const view: FolderViewType = folder.folder_view ?? 'grid'
+  const [continuous, setContinuous] = useState(false)
 
   const open = (id: string): void => nav(`/p/${project.id}/i/${id}`)
   const statusOf = (it: Item) => statuses?.find((s) => s.id === it.status_id)
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-8 pt-8">
-        <h1 className="text-xl font-semibold">{folder.title}</h1>
-        <p className="mt-1 text-sm text-text-muted">문서 정리 및 관리를 위한 폴더</p>
+      <div className="flex items-start justify-between px-8 pt-8">
+        <div>
+          <h1 className="text-xl font-semibold">{folder.title}</h1>
+          <p className="mt-1 text-sm text-text-muted">문서 정리 및 관리를 위한 폴더</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            className={`flex items-center gap-1.5 rounded-[var(--radius-sm)] border px-3 py-1.5 text-sm ${
+              continuous
+                ? 'border-accent text-accent'
+                : 'border-border hover:border-border-strong'
+            }`}
+            onClick={() => setContinuous((v) => !v)}
+            title="하위 문서를 회차 순서로 이어 읽기"
+          >
+            <BookOpen size={15} /> 연속 보기
+          </button>
+          <CompileMenu project={project} folder={folder} />
+        </div>
       </div>
 
+      {continuous ? (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <ContinuousView project={project} folder={folder} />
+        </div>
+      ) : (
+        <>
       {/* 뷰 탭 */}
       <div className="mt-4 flex gap-1 border-b border-border px-8">
         {TABS.map((t) => (
@@ -119,6 +207,8 @@ export function FolderView({ project, folder }: { project: Project; folder: Item
           <TimelineView children={children} labels={labels ?? []} onOpen={open} />
         )}
       </div>
+        </>
+      )}
     </div>
   )
 }

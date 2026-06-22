@@ -8,7 +8,7 @@
 export type RichDoc = { type: 'doc'; content?: unknown[] } | null
 
 /** 바인더 트리 노드의 종류 */
-export type ItemType = 'folder' | 'document' | 'sheet' | 'plotboard' | 'canvas'
+export type ItemType = 'folder' | 'document' | 'sheet' | 'plotboard' | 'canvas' | 'notes'
 
 /** 시트 하위 종류 (인물·장소·아이템·조직·개념) */
 export type SheetSubtype = 'character' | 'place' | 'item' | 'organization' | 'concept'
@@ -114,6 +114,8 @@ export interface Link {
   to_item: string
   rel: LinkRel
   label: string | null
+  /** 본문 멘션이 자동 생성한 링크인지 (true면 멘션과 동기화) */
+  auto: boolean
   created_at: string
 }
 
@@ -141,6 +143,10 @@ export interface BoardNode {
   color: string | null
   /** kind=ref 일 때 참조하는 아이템 */
   ref_item_id: string | null
+  /** 플롯보드 막/단계 인덱스 (null이면 자유 배치/캔버스) */
+  lane: number | null
+  /** 레인 내 카드 순서 */
+  ord: number
 }
 
 /** 플롯보드/캔버스 엣지 */
@@ -164,6 +170,16 @@ export interface Task {
   scheduled_at: string | null
   bucket: TaskBucket
   sort_order: number
+  created_at: string
+}
+
+/** 문서 공유 링크 */
+export interface Share {
+  id: string
+  project_id: string
+  item_id: string
+  token: string
+  expires_at: string | null
   created_at: string
 }
 

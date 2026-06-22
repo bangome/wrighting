@@ -9,6 +9,7 @@ import {
   Box,
   Building2,
   Lightbulb,
+  StickyNote,
   type LucideIcon
 } from 'lucide-react'
 import type { Item } from '@shared/types'
@@ -22,6 +23,7 @@ export function iconFor(item: Pick<Item, 'type' | 'sheet_subtype' | 'icon'>): Lu
     return Folder
   }
   if (item.type === 'document') return FileText
+  if (item.type === 'notes') return StickyNote
   if (item.type === 'plotboard') return Route
   if (item.type === 'canvas') return LayoutGrid
   if (item.type === 'sheet') {

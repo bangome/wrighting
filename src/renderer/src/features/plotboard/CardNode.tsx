@@ -44,25 +44,27 @@ function CardNodeImpl({ data, selected }: NodeProps): JSX.Element {
               className="w-full resize-none bg-transparent text-xs leading-relaxed text-text-muted outline-none"
               placeholder="설명을 입력하세요"
             />
-            <div className="mt-2 flex items-center gap-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {PALETTE.map((c, i) => (
                 <button
                   key={i}
                   onClick={() => d.onSave({ color: c })}
-                  className="h-3.5 w-3.5 rounded-full border border-border"
+                  className="h-3.5 w-3.5 shrink-0 rounded-full border border-border"
                   style={{ background: c ?? 'transparent' }}
                   title={c ?? '없음'}
                 />
               ))}
+            </div>
+            <div className="mt-2 flex items-center justify-end gap-3">
               <button
                 onClick={d.onDelete}
-                className="ml-auto text-xs text-danger hover:underline"
+                className="whitespace-nowrap text-xs text-danger hover:underline"
               >
                 삭제
               </button>
               <button
                 onClick={() => setEditing(false)}
-                className="text-xs text-text-muted hover:text-text"
+                className="whitespace-nowrap text-xs text-text-muted hover:text-text"
               >
                 완료
               </button>

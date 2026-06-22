@@ -24,6 +24,7 @@ import {
   useUpdateBoardNode
 } from '../../lib/boards'
 import { CardNode, type CardData } from './CardNode'
+import { LaneBoard } from './LaneBoard'
 
 function Inner({ project, item }: { project: Project; item: Item }): JSX.Element {
   const { data: srvNodes } = useBoardNodes(item.id)
@@ -121,8 +122,19 @@ function Inner({ project, item }: { project: Project; item: Item }): JSX.Element
   )
 }
 
-/** 플롯보드/캔버스 (React Flow) */
-export function BoardView({ project, item }: { project: Project; item: Item }): JSX.Element {
+/**
+ * 플롯보드(plot)=막/단계 레인 카드 보드, 캔버스(canvas)=자유 배치 관계 보드(React Flow).
+ */
+export function BoardView({
+  project,
+  item,
+  mode
+}: {
+  project: Project
+  item: Item
+  mode: 'plot' | 'canvas'
+}): JSX.Element {
+  if (mode === 'plot') return <LaneBoard project={project} item={item} />
   return (
     <ReactFlowProvider>
       <Inner project={project} item={item} />

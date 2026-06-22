@@ -47,6 +47,16 @@ export function Library(): JSX.Element {
   const deleteProject = useDeleteProject()
   const [search, setSearch] = useState('')
   const [menuFor, setMenuFor] = useState<string | null>(null)
+  // 인라인 이름 변경 (Electron 렌더러는 window.prompt 미지원)
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null)
+
+  function commitRename(): void {
+    if (!renaming) return
+    const title = renaming.value.trim()
+    const orig = (projects ?? []).find((p) => p.id === renaming.id)
+    if (title && title !== orig?.title) renameProject.mutate({ id: renaming.id, title })
+    setRenaming(null)
+  }
 
   const filtered = (projects ?? []).filter((p) =>
     p.title.toLowerCase().includes(search.trim().toLowerCase())
@@ -58,7 +68,15 @@ export function Library(): JSX.Element {
       nav(`/p/${p.id}`)
     } catch (err) {
       console.error('새 작품 생성 실패:', err)
-      alert(`새 작품을 만들지 못했습니다:\n${err instanceof Error ? err.message : String(err)}`)
+      // Supabase(PostgREST) 에러는 message 외에 code/hint/details 에 핵심 단서가 있다.
+      const e = err as { message?: string; code?: string; hint?: string; details?: string }
+      const lines = [
+        e.message ?? String(err),
+        e.code ? `code: ${e.code}` : '',
+        e.details ? `details: ${e.details}` : '',
+        e.hint ? `hint: ${e.hint}` : ''
+      ].filter(Boolean)
+      alert(`새 작품을 만들지 못했습니다:\n${lines.join('\n')}`)
     }
   }
 
@@ -130,9 +148,29 @@ export function Library(): JSX.Element {
                   onDoubleClick={() => nav(`/p/${p.id}`)}
                 >
                   <Cover project={p} />
-                  <div className="mt-2 truncate text-sm font-medium">{p.title}</div>
-                  <div className="text-xs text-text-faint">{formatDate(p.updated_at)}</div>
                 </button>
+                {renaming?.id === p.id ? (
+                  <input
+                    autoFocus
+                    value={renaming.value}
+                    onChange={(e) => setRenaming({ id: p.id, value: e.target.value })}
+                    onClick={(e) => e.stopPropagation()}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename()
+                      if (e.key === 'Escape') setRenaming(null)
+                    }}
+                    className="mt-2 w-full rounded-[var(--radius-sm)] border border-accent bg-bg-elev px-1.5 py-0.5 text-sm font-medium outline-none"
+                  />
+                ) : (
+                  <button
+                    className="mt-2 block w-full truncate text-left text-sm font-medium"
+                    onClick={() => nav(`/p/${p.id}`)}
+                  >
+                    {p.title}
+                  </button>
+                )}
+                <div className="text-xs text-text-faint">{formatDate(p.updated_at)}</div>
                 <button
                   className="absolute right-1 top-1 rounded bg-black/40 px-2 py-0.5 text-xs text-white opacity-0 group-hover:opacity-100"
                   onClick={(e) => {
@@ -150,8 +188,7 @@ export function Library(): JSX.Element {
                     <button
                       className="block w-full px-3 py-1.5 text-left hover:bg-bg-hover"
                       onClick={() => {
-                        const name = prompt('작품 이름', p.title)
-                        if (name) renameProject.mutate({ id: p.id, title: name })
+                        setRenaming({ id: p.id, value: p.title })
                         setMenuFor(null)
                       }}
                     >

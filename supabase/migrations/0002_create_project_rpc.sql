@@ -6,7 +6,6 @@ returns public.projects
 language plpgsql security definer set search_path = public as $$
 declare
   proj public.projects;
-  s_draft uuid;
 begin
   insert into public.projects (owner, title)
   values (auth.uid(), coalesce(nullif(trim(p_title), ''), '제목 없는 작품'))
@@ -32,8 +31,7 @@ begin
     (proj.id, '구상', '#888888', 0),
     (proj.id, '초안', '#d6924a', 1),
     (proj.id, '검토', '#5b8fd6', 2),
-    (proj.id, '완료됨', '#5fae7a', 3)
-  returning id into s_draft;
+    (proj.id, '완료됨', '#5fae7a', 3);
 
   return proj;
 end $$;

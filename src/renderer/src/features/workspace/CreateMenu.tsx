@@ -1,4 +1,4 @@
-import { FileText, Folder, LayoutGrid, Route, User } from 'lucide-react'
+import { FileText, Folder, LayoutGrid, Route, StickyNote, User } from 'lucide-react'
 import type { ItemType, SheetSubtype } from '@shared/types'
 
 export interface CreateChoice {
@@ -11,6 +11,7 @@ export interface CreateChoice {
 
 export const CREATE_CHOICES: CreateChoice[] = [
   { type: 'document', label: '새 문서', shortcut: '⌘N', Icon: FileText },
+  { type: 'notes', label: '새 노트', shortcut: '⌘⇧N', Icon: StickyNote },
   { type: 'sheet', sheetSubtype: 'character', label: '새 캐릭터', shortcut: '⌘⇧C', Icon: User },
   { type: 'plotboard', label: '새 플롯보드', shortcut: '⌘⇧P', Icon: Route },
   { type: 'canvas', label: '새 캔버스', shortcut: '⌘⇧V', Icon: LayoutGrid },

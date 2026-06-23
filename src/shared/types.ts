@@ -27,8 +27,25 @@ export type FolderView = 'grid' | 'list' | 'corkboard' | 'timeline'
 /** 작업(할일) 버킷 */
 export type TaskBucket = 'inbox' | 'today' | 'upcoming'
 
-/** 링크 관계 종류 — 그래프/백링크/복선의 데이터 소스. 'parent'는 트리 상하관계(상위→하위) */
-export type LinkRel = 'relation' | 'plant' | 'payoff' | 'ref' | 'parent'
+/**
+ * 링크 관계 술어 taxonomy (11종)
+ * auto=true 자동: ref(멘션), parent(트리)
+ * 복선: plant(심기), payoff(회수)
+ * 일반: relation(기본), causes(인과), precedes(시간선후),
+ *       opposes(대립), allies(협력), transforms(변화계기), symbolizes(상징)
+ */
+export type LinkRel =
+  | 'relation'
+  | 'plant'
+  | 'payoff'
+  | 'ref'
+  | 'parent'
+  | 'causes'
+  | 'precedes'
+  | 'opposes'
+  | 'allies'
+  | 'transforms'
+  | 'symbolizes'
 
 /** 사용자 프로필 + 동기화 대상 설정 */
 export interface Profile {
@@ -133,6 +150,8 @@ export interface Link {
 export interface Foreshadow {
   id: string
   project_id: string
+  /** 귀속 항목 ID — 복선이 특정 인물·사물 등과 연결될 때 설정 */
+  item_id: string | null
   code: string
   content: string | null
   reveal_at: string | null

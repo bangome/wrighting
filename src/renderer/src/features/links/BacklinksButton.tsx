@@ -8,9 +8,15 @@ import { useLinks } from '../../lib/links'
 /** 링크 관계별 한글 라벨 (백링크 그룹 표시용) */
 const REL_LABEL: Record<LinkRel, string> = {
   relation: '관계',
-  ref: '본문 언급',
+  causes: '인과',
+  precedes: '시간선후',
+  opposes: '대립·갈등',
+  allies: '동맹·협력',
+  transforms: '변화 계기',
+  symbolizes: '상징',
   plant: '복선',
   payoff: '회수',
+  ref: '본문 언급',
   parent: '상위 항목'
 }
 
@@ -48,7 +54,10 @@ export function BacklinksButton({
       arr.push({ linkId: l.id, fromId: from.id, title: from.title })
       map.set(l.rel, arr)
     }
-    const order: LinkRel[] = ['relation', 'ref', 'plant', 'payoff', 'parent']
+    const order: LinkRel[] = [
+      'relation', 'causes', 'precedes', 'opposes', 'allies', 'transforms', 'symbolizes',
+      'plant', 'payoff', 'ref', 'parent'
+    ]
     return order
       .filter((rel) => map.has(rel))
       .map((rel) => ({ rel, entries: map.get(rel)! }))

@@ -306,6 +306,60 @@ tool(
 )
 
 tool(
+  'create_plotboard',
+  '새 플롯보드를 만든다. 생성 후 create_board_node/create_board_edge 로 노드·엣지를 추가한다.',
+  {
+    ...proj,
+    title: z.string(),
+    parentId: z.string().optional().describe('상위 폴더 item id')
+  },
+  async (args) => {
+    const pid = await resolveProjectId(args)
+    const sort = await nextSortOrder(pid, args.parentId ?? null)
+    const { data, error } = await sb
+      .from('items')
+      .insert({
+        project_id: pid,
+        parent_id: args.parentId ?? null,
+        type: 'plotboard',
+        title: args.title,
+        sort_order: sort
+      })
+      .select('id')
+      .single()
+    if (error) throw error
+    return { itemId: data.id }
+  }
+)
+
+tool(
+  'create_canvas',
+  '새 캔버스를 만든다. 생성 후 create_board_node/create_board_edge 로 카드·도형·파일참조·엣지를 추가한다.',
+  {
+    ...proj,
+    title: z.string(),
+    parentId: z.string().optional().describe('상위 폴더 item id')
+  },
+  async (args) => {
+    const pid = await resolveProjectId(args)
+    const sort = await nextSortOrder(pid, args.parentId ?? null)
+    const { data, error } = await sb
+      .from('items')
+      .insert({
+        project_id: pid,
+        parent_id: args.parentId ?? null,
+        type: 'canvas',
+        title: args.title,
+        sort_order: sort
+      })
+      .select('id')
+      .single()
+    if (error) throw error
+    return { itemId: data.id }
+  }
+)
+
+tool(
   'update_item',
   '항목 메타데이터를 수정한다(제목·요약·상위폴더 이동·상태·라벨·아이콘·정렬). 전달한 필드만 변경.',
   {
@@ -459,13 +513,14 @@ tool(
 
 tool(
   'create_foreshadow',
-  '복선 원장 항목을 추가한다.',
+  '복선 원장 항목을 추가한다. itemId로 특정 항목(인물·사물 등)에 귀속시킬 수 있다.',
   {
     ...proj,
     code: z.string().describe('복선 코드(예: F-01)'),
     content: z.string().optional(),
     revealAt: z.string().optional().describe('회수 예정(회차 등 자유 텍스트)'),
-    status: z.enum(['hidden', 'hinted', 'paid']).optional()
+    status: z.enum(['hidden', 'hinted', 'paid']).optional(),
+    itemId: z.string().optional().describe('귀속 항목 ID — 복선이 특정 인물·사물과 연결될 때')
   },
   async (args) => {
     const pid = await resolveProjectId(args)
@@ -476,7 +531,8 @@ tool(
         code: args.code,
         content: args.content ?? null,
         reveal_at: args.revealAt ?? null,
-        status: args.status ?? 'hidden'
+        status: args.status ?? 'hidden',
+        item_id: args.itemId ?? null
       })
       .select('*')
       .single()
@@ -487,13 +543,14 @@ tool(
 
 tool(
   'update_foreshadow',
-  '복선 항목을 수정한다(전달 필드만).',
+  '복선 항목을 수정한다(전달 필드만). itemId로 귀속 항목을 설정/해제(null)할 수 있다.',
   {
     id: z.string(),
     code: z.string().optional(),
     content: z.string().nullable().optional(),
     revealAt: z.string().nullable().optional(),
-    status: z.enum(['hidden', 'hinted', 'paid']).optional()
+    status: z.enum(['hidden', 'hinted', 'paid']).optional(),
+    itemId: z.string().nullable().optional().describe('귀속 항목 ID. null이면 귀속 해제')
   },
   async (args) => {
     const patch: Record<string, unknown> = {}
@@ -501,6 +558,7 @@ tool(
     if (args.content !== undefined) patch.content = args.content
     if (args.revealAt !== undefined) patch.reveal_at = args.revealAt
     if (args.status !== undefined) patch.status = args.status
+    if (args.itemId !== undefined) patch.item_id = args.itemId
     const { error } = await sb.from('foreshadow').update(patch).eq('id', args.id)
     if (error) throw error
     return { id: args.id, changed: true }
@@ -529,12 +587,26 @@ tool(
 
 tool(
   'create_link',
-  '두 항목 사이에 링크를 만든다. rel: relation(관계)·plant(복선 심기)·payoff(복선 회수)·ref(참조)·parent(상하).',
+  '두 항목 사이에 링크를 만든다. rel: relation(일반)·causes(인과)·precedes(시간선후)·opposes(대립)·allies(협력)·transforms(변화계기)·symbolizes(상징)·plant(복선심기)·payoff(복선회수)·ref(멘션,auto)·parent(계층,auto).',
   {
     ...proj,
     fromItem: z.string(),
     toItem: z.string(),
-    rel: z.enum(['relation', 'plant', 'payoff', 'ref', 'parent']).optional(),
+    rel: z
+      .enum([
+        'relation',
+        'causes',
+        'precedes',
+        'opposes',
+        'allies',
+        'transforms',
+        'symbolizes',
+        'plant',
+        'payoff',
+        'ref',
+        'parent'
+      ])
+      .optional(),
     label: z.string().optional()
   },
   async (args) => {
@@ -875,11 +947,25 @@ tool(
 
 tool(
   'get_relations',
-  '항목의 관계(트리플)를 반환. direction(out/in/both)·rel(relation/plant/payoff/ref/parent) 필터. 상대 항목은 {id,title,type,subtype}로 해석.',
+  '항목의 관계(트리플)를 반환. direction(out/in/both)·rel 필터. rel: relation·causes·precedes·opposes·allies·transforms·symbolizes·plant·payoff·ref·parent. 상대 항목은 {id,title,type,subtype}로 해석.',
   {
     itemId: z.string(),
     direction: z.enum(['out', 'in', 'both']).optional(),
-    rel: z.enum(['relation', 'plant', 'payoff', 'ref', 'parent']).optional()
+    rel: z
+      .enum([
+        'relation',
+        'causes',
+        'precedes',
+        'opposes',
+        'allies',
+        'transforms',
+        'symbolizes',
+        'plant',
+        'payoff',
+        'ref',
+        'parent'
+      ])
+      .optional()
   },
   async ({ itemId, direction, rel }) => {
     const pid = await itemProjectId(itemId)
@@ -907,7 +993,21 @@ tool(
   {
     itemId: z.string(),
     depth: z.number().optional().describe('기본 2, 최대 4'),
-    rel: z.enum(['relation', 'plant', 'payoff', 'ref', 'parent']).optional(),
+    rel: z
+      .enum([
+        'relation',
+        'causes',
+        'precedes',
+        'opposes',
+        'allies',
+        'transforms',
+        'symbolizes',
+        'plant',
+        'payoff',
+        'ref',
+        'parent'
+      ])
+      .optional(),
     maxNodes: z.number().optional().describe('기본 50')
   },
   async ({ itemId, depth, rel, maxNodes }) => {

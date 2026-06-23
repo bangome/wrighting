@@ -56,7 +56,7 @@ npm run build
 개발 중에는 빌드 없이 `tsx`로도 실행할 수 있습니다:
 `"command": "npx", "args": ["tsx", ".../mcp/src/index.ts"]`.
 
-## 제공 도구 (41종)
+## 제공 도구 (43종)
 
 작품-범위 도구는 모두 `projectId` 또는 `project`(제목)를 선택 인자로 받으며, 생략 시 위 매핑 규칙으로 해석합니다.
 
@@ -82,7 +82,9 @@ npm run build
 **라벨·상태**
 - `list_labels` · `list_statuses` · `create_status(name, color?)` · `create_label(name, color?)`
 
-**플롯보드**
+**플롯보드·캔버스**
+- `create_plotboard(title, parentId?)` — 새 플롯보드 항목 생성
+- `create_canvas(title, parentId?)` — 새 캔버스 항목 생성
 - `create_board_node(boardItemId, …)` · `update_board_node(id, …)` · `delete_board_node(id)`
 - `create_board_edge(boardItemId, source, target, label?)` · `delete_board_edge(id)`
 

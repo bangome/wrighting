@@ -72,7 +72,7 @@ function CardNodeImpl({ data, selected }: NodeProps): JSX.Element {
           </>
         ) : (
           <div onDoubleClick={() => setEditing(true)}>
-            <div className="mb-1 text-sm font-semibold">{d.title || '제목 없음'}</div>
+            <div className="mb-1 line-clamp-2 break-words text-sm font-semibold">{d.title || '제목 없음'}</div>
             <div className="line-clamp-4 text-xs leading-relaxed text-text-muted">
               {d.body || '더블클릭하여 편집'}
             </div>

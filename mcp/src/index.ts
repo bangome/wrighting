@@ -689,16 +689,21 @@ tool(
 
 tool(
   'create_board_node',
-  '플롯보드/캔버스에 노드(카드·그룹·참조)를 추가한다. boardItemId 는 plotboard/canvas 항목 id.',
+  '플롯보드/캔버스에 노드를 추가한다. boardItemId 는 plotboard/canvas 항목 id. 플롯보드 파트 카드(kind=card)는 colId(소속 막 그룹 노드 id)·ord·tags·docIds·mentionIds 사용.',
   {
     boardItemId: z.string(),
     kind: z.enum(['card', 'group', 'ref', 'shape']).optional(),
     title: z.string().optional(),
-    body: z.string().optional(),
+    body: z.string().optional().describe('설명'),
     color: z.string().optional(),
     x: z.number().optional(),
     y: z.number().optional(),
-    refItemId: z.string().optional().describe('kind=ref 일 때 참조 항목')
+    refItemId: z.string().optional().describe('kind=ref 일 때 참조 항목'),
+    colId: z.string().optional().describe('(플롯보드) 소속 막(group 노드) id'),
+    ord: z.number().optional().describe('(플롯보드) 컬럼 내 순서'),
+    tags: z.array(z.string()).optional().describe('태그 목록'),
+    docIds: z.array(z.string()).optional().describe('연결된 문서 item id 목록'),
+    mentionIds: z.array(z.string()).optional().describe('언급된 항목(시트 등) id 목록')
   },
   async (args) => {
     const pid = await itemProjectId(args.boardItemId)
@@ -713,7 +718,12 @@ tool(
         color: args.color ?? null,
         x: args.x ?? 0,
         y: args.y ?? 0,
-        ref_item_id: args.refItemId ?? null
+        ref_item_id: args.refItemId ?? null,
+        col_id: args.colId ?? null,
+        ord: args.ord ?? 0,
+        tags: args.tags ?? [],
+        doc_ids: args.docIds ?? [],
+        mention_ids: args.mentionIds ?? []
       })
       .select('*')
       .single()
@@ -724,14 +734,19 @@ tool(
 
 tool(
   'update_board_node',
-  '플롯보드 노드를 수정한다(전달 필드만).',
+  '플롯보드 노드를 수정한다(전달 필드만). 파트 카드는 colId·ord·tags·docIds·mentionIds 사용 가능.',
   {
     id: z.string(),
     title: z.string().nullable().optional(),
     body: z.string().nullable().optional(),
     color: z.string().nullable().optional(),
     x: z.number().optional(),
-    y: z.number().optional()
+    y: z.number().optional(),
+    colId: z.string().nullable().optional().describe('(플롯보드) 소속 막 이동'),
+    ord: z.number().optional().describe('(플롯보드) 컬럼 내 순서'),
+    tags: z.array(z.string()).optional(),
+    docIds: z.array(z.string()).optional(),
+    mentionIds: z.array(z.string()).optional()
   },
   async (args) => {
     const patch: Record<string, unknown> = {}
@@ -740,6 +755,11 @@ tool(
     if (args.color !== undefined) patch.color = args.color
     if (args.x !== undefined) patch.x = args.x
     if (args.y !== undefined) patch.y = args.y
+    if (args.colId !== undefined) patch.col_id = args.colId
+    if (args.ord !== undefined) patch.ord = args.ord
+    if (args.tags !== undefined) patch.tags = args.tags
+    if (args.docIds !== undefined) patch.doc_ids = args.docIds
+    if (args.mentionIds !== undefined) patch.mention_ids = args.mentionIds
     const { error } = await sb.from('board_nodes').update(patch).eq('id', args.id)
     if (error) throw error
     return { id: args.id, changed: true }

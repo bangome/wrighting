@@ -87,12 +87,20 @@ export function PlotBoard({ project, item }: { project: Project; item: Item }): 
       addNode.mutate({ kind: 'group', title: a.title, body: a.body, color: a.color, ord: i })
     )
   }
-  function moveColumn(col: BoardNode, dir: -1 | 1): void {
+  async function moveColumn(col: BoardNode, dir: -1 | 1): Promise<void> {
     const idx = columns.findIndex((c) => c.id === col.id)
-    const swap = columns[idx + dir]
-    if (!swap) return
-    updateNode.mutate({ id: col.id, patch: { ord: swap.ord } })
-    updateNode.mutate({ id: swap.id, patch: { ord: col.ord } })
+    const swapIdx = idx + dir
+    if (swapIdx < 0 || swapIdx >= columns.length) return
+    const swap = columns[swapIdx]
+    // ord 중복 시 인덱스 기반 값으로 강제 구분
+    const [newColOrd, newSwapOrd] =
+      col.ord !== swap.ord ? [swap.ord, col.ord] : [swapIdx, idx]
+    try {
+      await updateNode.mutateAsync({ id: col.id, patch: { ord: newColOrd } })
+      await updateNode.mutateAsync({ id: swap.id, patch: { ord: newSwapOrd } })
+    } catch {
+      // 실패 시 refetch로 자동 복구
+    }
   }
 
   const docItems = (items ?? []).filter((i) => i.type === 'document')

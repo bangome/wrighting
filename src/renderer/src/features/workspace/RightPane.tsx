@@ -11,14 +11,14 @@ export function RightPane({ project }: { project: Project }): JSX.Element {
 
   if (rightPane.type === 'memo') {
     return (
-      <div className="flex h-full flex-col border-l border-border">
+      <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border">
         <MemoPanel project={project} itemId={itemId} />
       </div>
     )
   }
 
   return (
-    <div className="flex h-full flex-col border-l border-border">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden border-l border-border">
       <div className="min-h-0 flex-1 overflow-hidden">
         <GraphPanel project={project} focusId={itemId} />
       </div>

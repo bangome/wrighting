@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  GripVertical,
   MoreHorizontal,
   Plus,
   Tag,
@@ -29,6 +30,12 @@ const DEFAULT_ACTS = [
   { title: '2막: 대립', body: '상승 액션, 캐릭터 발전, 장애물', color: '#5b8fd6' },
   { title: '3막: 해결', body: '클라이맥스, 하강 액션, 해결', color: '#5fae7a' }
 ]
+
+// 레이아웃 상수 (getDropIdx 계산에 사용)
+const IZ_W = 8   // InsertZone 너비(px)
+const COL_W = 320 // Column 너비(px, w-80)
+const SLOT_W = IZ_W + COL_W // 328px
+const PAD_L = 24  // px-6
 
 /**
  * 플롯보드 — 데이터형 컬럼(막) + 리치 파트 카드 보드.
@@ -65,7 +72,7 @@ export function PlotBoard({ project, item }: { project: Project; item: Item }): 
   const syncKey = mentionedIds.join(',')
   const lastSynced = useRef<string | null>(null)
   useEffect(() => {
-    if (!nodes) return // 아직 로드 전이면 동기화하지 않음(전체 삭제로 오인 방지)
+    if (!nodes) return
     if (lastSynced.current === syncKey) return
     lastSynced.current = syncKey
     syncLinks.mutate({ fromItem: item.id, toItemIds: mentionedIds })
@@ -87,45 +94,107 @@ export function PlotBoard({ project, item }: { project: Project; item: Item }): 
       addNode.mutate({ kind: 'group', title: a.title, body: a.body, color: a.color, ord: i })
     )
   }
+
+  /** 주어진 순서대로 0-기반 ord 재할당 */
+  async function reorderColumns(ordered: BoardNode[]): Promise<void> {
+    await Promise.all(
+      ordered.map((c, i) => updateNode.mutateAsync({ id: c.id, patch: { ord: i } }))
+    )
+  }
+
+  /** 인접 막 교환 — 전체 재정렬로 ord 충돌 방지 */
   async function moveColumn(col: BoardNode, dir: -1 | 1): Promise<void> {
     const idx = columns.findIndex((c) => c.id === col.id)
     const swapIdx = idx + dir
     if (swapIdx < 0 || swapIdx >= columns.length) return
-    const swap = columns[swapIdx]
-    // ord 중복 시 인덱스 기반 값으로 강제 구분
-    const [newColOrd, newSwapOrd] =
-      col.ord !== swap.ord ? [swap.ord, col.ord] : [swapIdx, idx]
-    try {
-      await updateNode.mutateAsync({ id: col.id, patch: { ord: newColOrd } })
-      await updateNode.mutateAsync({ id: swap.id, patch: { ord: newSwapOrd } })
-    } catch {
-      // 실패 시 refetch로 자동 복구
-    }
+    const reordered = [...columns]
+    ;[reordered[idx], reordered[swapIdx]] = [reordered[swapIdx], reordered[idx]]
+    await reorderColumns(reordered)
+  }
+
+  /** insertIdx 위치(0-based)에 새 막 삽입 — 기존 ord를 10 단위로 밀어내고 새 막을 끼워 넣음 */
+  async function insertColumnAt(insertIdx: number): Promise<void> {
+    await Promise.all(
+      columns.map((c, i) =>
+        updateNode.mutateAsync({ id: c.id, patch: { ord: i >= insertIdx ? (i + 1) * 10 : i * 10 } })
+      )
+    )
+    addNode.mutate({ kind: 'group', title: '새 막', body: '', ord: insertIdx * 10 })
   }
 
   const docItems = (items ?? []).filter((i) => i.type === 'document')
   const mentionItems = (items ?? []).filter((i) => i.type === 'sheet')
 
-  // 빈 배경을 잡고 드래그해 보드를 패닝(스크롤). 카드/입력/버튼 위에서는 시작하지 않는다.
+  // ── 컬럼 드래그 상태 ──────────────────────────────────────────────
+  const colDragRef = useRef<{ id: string; fromIdx: number } | null>(null)
+  const [drag, setDrag] = useState<{ colId: string; dropIdx: number } | null>(null)
+
+  // ── 보드 패닝 ─────────────────────────────────────────────────────
   const scrollRef = useRef<HTMLDivElement | null>(null)
   const pan = useRef({ active: false, x: 0, y: 0, left: 0, top: 0 })
+
+  /** 마우스 clientX → 드롭 인덱스(0 = 첫 막 앞, n = 마지막 막 뒤) */
+  function getDropIdx(clientX: number): number {
+    const el = scrollRef.current
+    if (!el) return 0
+    const rect = el.getBoundingClientRect()
+    const mouseX = clientX - rect.left + el.scrollLeft
+    for (let i = 0; i < columns.length; i++) {
+      // Column[i] center = PAD_L + IZ_W + i * SLOT_W + COL_W / 2
+      const colCenter = PAD_L + IZ_W + i * SLOT_W + COL_W / 2
+      if (mouseX < colCenter) return i
+    }
+    return columns.length
+  }
+
   function onPanStart(e: React.PointerEvent<HTMLDivElement>): void {
     if (e.button !== 0) return
     const t = e.target as HTMLElement
+    // 컬럼 드래그 핸들 감지
+    const dragEl = t.closest('[data-col-drag]')
+    if (dragEl) {
+      const colId = (dragEl as HTMLElement).getAttribute('data-col-drag')!
+      const idx = columns.findIndex((c) => c.id === colId)
+      colDragRef.current = { id: colId, fromIdx: idx }
+      setDrag({ colId, dropIdx: idx })
+      scrollRef.current?.setPointerCapture(e.pointerId)
+      return
+    }
     if (t.closest('[data-card], input, textarea, button')) return
     const el = scrollRef.current
     if (!el) return
     pan.current = { active: true, x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop }
     el.setPointerCapture(e.pointerId)
   }
+
   function onPanMove(e: React.PointerEvent<HTMLDivElement>): void {
+    if (colDragRef.current) {
+      setDrag((prev) => (prev ? { ...prev, dropIdx: getDropIdx(e.clientX) } : null))
+      return
+    }
     if (!pan.current.active) return
     const el = scrollRef.current
     if (!el) return
     el.scrollLeft = pan.current.left - (e.clientX - pan.current.x)
     el.scrollTop = pan.current.top - (e.clientY - pan.current.y)
   }
-  function onPanEnd(e: React.PointerEvent<HTMLDivElement>): void {
+
+  async function onPanEnd(e: React.PointerEvent<HTMLDivElement>): Promise<void> {
+    if (colDragRef.current) {
+      const { id: dragId, fromIdx } = colDragRef.current
+      const toIdx = getDropIdx(e.clientX)
+      colDragRef.current = null
+      setDrag(null)
+      scrollRef.current?.releasePointerCapture(e.pointerId)
+      // 실질적인 위치 변경이 있을 때만 재정렬
+      if (toIdx !== fromIdx && toIdx !== fromIdx + 1) {
+        const reordered = [...columns]
+        const [moved] = reordered.splice(fromIdx, 1)
+        reordered.splice(toIdx > fromIdx ? toIdx - 1 : toIdx, 0, moved)
+        await reorderColumns(reordered)
+      }
+      return
+    }
     if (!pan.current.active) return
     pan.current.active = false
     scrollRef.current?.releasePointerCapture(e.pointerId)
@@ -185,43 +254,101 @@ export function PlotBoard({ project, item }: { project: Project; item: Item }): 
           onPointerMove={onPanMove}
           onPointerUp={onPanEnd}
           onPointerCancel={onPanEnd}
-          className="no-scrollbar flex flex-1 cursor-grab gap-4 overflow-x-auto px-6 pb-6 [&:active]:cursor-grabbing"
+          className="no-scrollbar flex flex-1 overflow-x-auto px-6 pb-6"
+          style={{ cursor: drag ? 'grabbing' : 'grab' }}
         >
-          {columns.map((col, idx) => (
-            <Column
-              key={col.id}
-              col={col}
-              projectId={project.id}
-              cards={cardsOf(col.id)}
-              columns={columns}
-              isFirst={idx === 0}
-              isLast={idx === columns.length - 1}
-              docItems={docItems}
-              mentionItems={mentionItems}
-              onUpdateCol={(patch) => updateNode.mutate({ id: col.id, patch })}
-              onDeleteCol={() => deleteNode.mutate(col.id)}
-              onMoveCol={(dir) => moveColumn(col, dir)}
-              onAddCard={() =>
-                addNode.mutate({
-                  kind: 'card',
-                  col_id: col.id,
-                  title: '새 파트 카드',
-                  body: '',
-                  ord: cardsOf(col.id).reduce((m, c) => Math.max(m, c.ord), -1) + 1
-                })
-              }
-              onUpdateCard={(id, patch) => updateNode.mutate({ id, patch })}
-              onDeleteCard={(id) => deleteNode.mutate(id)}
-            />
-          ))}
-          <button
-            onClick={addColumn}
-            title="막 추가"
-            className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-app border border-dashed border-border text-text-faint hover:border-border-strong hover:text-text"
-          >
-            <Plus size={18} />
-          </button>
+          {[
+            <InsertZone
+              key="iz-0"
+              isDropTarget={drag?.dropIdx === 0}
+              isDragging={!!drag}
+              onInsert={() => insertColumnAt(0)}
+            />,
+            ...columns.flatMap((col, idx) => [
+              <Column
+                key={col.id}
+                col={col}
+                projectId={project.id}
+                cards={cardsOf(col.id)}
+                columns={columns}
+                isFirst={idx === 0}
+                isLast={idx === columns.length - 1}
+                docItems={docItems}
+                mentionItems={mentionItems}
+                isDragging={drag?.colId === col.id}
+                onUpdateCol={(patch) => updateNode.mutate({ id: col.id, patch })}
+                onDeleteCol={() => deleteNode.mutate(col.id)}
+                onMoveCol={(dir) => moveColumn(col, dir)}
+                onAddCard={() =>
+                  addNode.mutate({
+                    kind: 'card',
+                    col_id: col.id,
+                    title: '새 파트 카드',
+                    body: '',
+                    ord: cardsOf(col.id).reduce((m, c) => Math.max(m, c.ord), -1) + 1
+                  })
+                }
+                onUpdateCard={(id, patch) => updateNode.mutate({ id, patch })}
+                onDeleteCard={(id) => deleteNode.mutate(id)}
+              />,
+              <InsertZone
+                key={`iz-${idx + 1}`}
+                isDropTarget={drag?.dropIdx === idx + 1}
+                isDragging={!!drag}
+                onInsert={() => insertColumnAt(idx + 1)}
+              />
+            ]),
+            <button
+              key="add-col"
+              onClick={addColumn}
+              title="막 추가"
+              className="flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-app border border-dashed border-border text-text-faint hover:border-border-strong hover:text-text"
+            >
+              <Plus size={18} />
+            </button>
+          ]}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ── 막 사이 삽입 존 (Fan 기능 + DnD 드롭 인디케이터) ─────────────────
+function InsertZone({
+  isDropTarget,
+  isDragging,
+  onInsert
+}: {
+  isDropTarget: boolean
+  isDragging: boolean
+  onInsert: () => void
+}): JSX.Element {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <div
+      className="relative shrink-0 self-stretch"
+      style={{ width: IZ_W }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
+      {/* DnD 드롭 인디케이터 */}
+      {isDropTarget && (
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-accent opacity-90" />
+      )}
+      {/* Fan: 호버 시 + 버튼 */}
+      {!isDragging && hovered && (
+        <button
+          className="absolute left-1/2 top-3 z-10 flex h-5 w-5 -translate-x-1/2 items-center justify-center rounded-full bg-accent text-white shadow-sm"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation()
+            onInsert()
+          }}
+          title="여기에 막 추가"
+        >
+          <Plus size={10} />
+        </button>
       )}
     </div>
   )
@@ -237,6 +364,7 @@ function Column({
   isLast,
   docItems,
   mentionItems,
+  isDragging,
   onUpdateCol,
   onDeleteCol,
   onMoveCol,
@@ -252,6 +380,7 @@ function Column({
   isLast: boolean
   docItems: Item[]
   mentionItems: Item[]
+  isDragging: boolean
   onUpdateCol: (patch: Partial<BoardNode>) => void
   onDeleteCol: () => void
   onMoveCol: (dir: -1 | 1) => void
@@ -262,12 +391,24 @@ function Column({
   const [menuOpen, setMenuOpen] = useState(false)
 
   return (
-    <div className="flex w-80 shrink-0 flex-col rounded-app bg-bg-elev/40">
+    <div
+      className="flex shrink-0 flex-col rounded-app bg-bg-elev/40 transition-opacity"
+      style={{ width: COL_W, opacity: isDragging ? 0.4 : 1 }}
+    >
       {/* 컬럼 헤더 */}
       <div
-        className="flex items-start gap-2 rounded-t-app border-t-[3px] px-3 pb-2 pt-2.5"
+        className="flex items-start gap-1.5 rounded-t-app border-t-[3px] px-2 pb-2 pt-2.5"
         style={{ borderTopColor: col.color ?? 'var(--border)' }}
       >
+        {/* 드래그 핸들 */}
+        <div
+          data-col-drag={col.id}
+          className="mt-0.5 shrink-0 cursor-grab touch-none text-text-faint hover:text-text active:cursor-grabbing"
+          title="드래그하여 이동"
+        >
+          <GripVertical size={14} />
+        </div>
+
         <div className="min-w-0 flex-1">
           <input
             defaultValue={col.title ?? ''}

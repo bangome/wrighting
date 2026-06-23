@@ -321,20 +321,8 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
       container: containerRef.current,
       elements: buildElements(items, links ?? [], boardNodes ?? [], graphFilter, focusId),
       style: styles(readThemeColors()),
-      layout: {
-        name: 'cose',
-        animate: false,
-        fit: true,
-        padding: 40,
-        // 노드를 현재 영역에 알맞게 모으도록: 반발력↓·중력↑·이상 길이↓
-        nodeRepulsion: () => 9000,
-        idealEdgeLength: () => 80,
-        edgeElasticity: () => 80,
-        gravity: 0.55,
-        numIter: 2500,
-        randomize: true,
-        componentSpacing: 90
-      },
+      // 레이아웃은 아래에서 라벨 크기를 반영해 수동 실행 (preset = 자동 배치 안 함)
+      layout: { name: 'preset' },
       wheelSensitivity: 0.5,
       minZoom: 0.1,
       maxZoom: 3
@@ -377,9 +365,52 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
       applyLabels()
     }
 
-    cy.on('layoutstop', fitView)
+    // 라벨이 겹치지 않도록: 레이아웃 동안 노드 크기를 라벨 폭만큼 부풀려
+    // cose 의 겹침 회피(nodeOverlap)가 라벨 공간까지 확보하게 한 뒤, 끝나면 원래 크기로 복원.
+    const labelBox = (label: string): { w: number; h: number } => {
+      // 한글/혼합 라벨 폭 근사(글자당 ~9px), 16~280px 클램프 + 좌우 여백
+      const w = Math.min(280, Math.max(16, (label?.length ?? 0) * 9))
+      return { w: w + 20, h: 38 }
+    }
+    const inflateNodes = (): void =>
+      cy.batch(() =>
+        cy.nodes().forEach((n) => {
+          const { w, h } = labelBox(n.data('label'))
+          n.style({ width: w, height: h })
+        })
+      )
+    const restoreNodes = (): void =>
+      cy.batch(() =>
+        cy.nodes().forEach((n) => {
+          n.removeStyle('width height')
+        })
+      )
+
+    cy.on('layoutstop', () => {
+      restoreNodes()
+      fitView()
+    })
     cy.on('zoom', applyLabels)
-    cy.ready(fitView)
+
+    const runLayout = (): void => {
+      inflateNodes()
+      cy.layout({
+        name: 'cose',
+        animate: false,
+        fit: false,
+        padding: FIT_PADDING,
+        // 라벨 포함 크기를 반영해 충분히 벌림 (겹침 회피↑·반발력↑·이상 길이↑)
+        nodeOverlap: 24,
+        nodeRepulsion: () => 16000,
+        idealEdgeLength: () => 120,
+        edgeElasticity: () => 70,
+        gravity: 0.3,
+        numIter: 3000,
+        randomize: true,
+        componentSpacing: 130
+      }).run()
+    }
+    cy.ready(runLayout)
 
     // 컨테이너 크기가 0→실측으로 바뀌는 초기 레이스/리사이즈에 대응
     const ro = new ResizeObserver(() => {

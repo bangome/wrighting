@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+declare module 'cytoscape-cola' {
+  const cola: (cytoscape: unknown) => void
+  export default cola
+}
+
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string
   readonly VITE_SUPABASE_ANON_KEY: string

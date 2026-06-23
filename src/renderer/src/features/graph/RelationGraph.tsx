@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import cytoscape, { type Core, type ElementDefinition } from 'cytoscape'
+import cola from 'cytoscape-cola'
 import { Filter, FileText, Layers, Columns3, Folder, SquareStack, StickyNote, Check } from 'lucide-react'
 import type { BoardNode, Item, Link, Project } from '@shared/types'
 import { useItems } from '../../lib/items'
@@ -35,6 +36,13 @@ const CATEGORY_ICON: Record<GraphCategory, typeof FileText> = {
   folder: Folder,
   'plot-card': SquareStack,
   'plot-part-card': StickyNote
+}
+
+// 연속 물리 레이아웃(cola) 확장 — 모듈 로드 시 1회 등록
+try {
+  cytoscape.use(cola as unknown as Parameters<typeof cytoscape.use>[0])
+} catch {
+  // 이미 등록됨(핫리로드 등) — 무시
 }
 
 /** board 노드 그래프 id 접두사 (아이템 id 와 구분) */
@@ -365,57 +373,40 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
       applyLabels()
     }
 
-    // 라벨이 겹치지 않도록: 레이아웃 동안 노드 크기를 라벨 폭만큼 부풀려
-    // cose 의 겹침 회피(nodeOverlap)가 라벨 공간까지 확보하게 한 뒤, 끝나면 원래 크기로 복원.
-    const labelBox = (label: string): { w: number; h: number } => {
-      // 한글/혼합 라벨 폭 근사(글자당 ~9px), 16~280px 클램프 + 좌우 여백
-      const w = Math.min(280, Math.max(16, (label?.length ?? 0) * 9))
-      return { w: w + 20, h: 38 }
-    }
-    const inflateNodes = (): void =>
-      cy.batch(() =>
-        cy.nodes().forEach((n) => {
-          const { w, h } = labelBox(n.data('label'))
-          n.style({ width: w, height: h })
-        })
-      )
-    const restoreNodes = (): void =>
-      cy.batch(() =>
-        cy.nodes().forEach((n) => {
-          n.removeStyle('width height')
-        })
-      )
+    // Neo4j/옵시디언식 연속 물리 시뮬레이션(cola): 노드끼리 밀어내고 간선이 스프링처럼 당기며,
+    // 드래그하면 분자처럼 재배치된다. 라벨 폭만큼 nodeSpacing 을 줘 글씨가 겹치지 않게 거리 유지.
+    const labelSpacing = (label: string): number =>
+      Math.min(130, Math.max(14, ((label?.length ?? 0) * 9) / 2))
 
-    cy.on('layoutstop', () => {
-      restoreNodes()
+    // 연속 모드라 layoutstop 이 없으므로 초기 1회만 화면에 맞춘다(이후엔 사용자가 패닝/줌).
+    let fitted = false
+    const fitOnce = (): void => {
+      if (fitted || !cyRef.current) return
+      fitted = true
       fitView()
-    })
-    cy.on('zoom', applyLabels)
-
-    const runLayout = (): void => {
-      inflateNodes()
-      cy.layout({
-        name: 'cose',
-        animate: false,
-        fit: false,
-        padding: FIT_PADDING,
-        // 라벨 포함 크기를 반영해 충분히 벌림 (겹침 회피↑·반발력↑·이상 길이↑)
-        nodeOverlap: 24,
-        nodeRepulsion: () => 16000,
-        idealEdgeLength: () => 120,
-        edgeElasticity: () => 70,
-        gravity: 0.3,
-        numIter: 3000,
-        randomize: true,
-        componentSpacing: 130
-      }).run()
     }
-    cy.ready(runLayout)
+    cy.on('zoom', applyLabels)
+    cy.one('layoutready', fitOnce)
+    const fitTimer = setTimeout(fitOnce, 500)
+
+    const layout = cy.layout({
+      name: 'cola',
+      infinite: true, // 분자처럼 힘이 계속 작용하는 연속 모드
+      animate: true,
+      fit: false,
+      randomize: true,
+      handleDisconnected: true, // 끊긴 컴포넌트끼리 겹치지 않게
+      centerGraph: true,
+      ungrabifyWhileSimulating: false, // 시뮬레이션 중에도 드래그 가능
+      nodeSpacing: (node: cytoscape.NodeSingular) => labelSpacing(node.data('label')),
+      edgeLength: 120
+    } as unknown as cytoscape.LayoutOptions)
+    layout.run()
 
     // 컨테이너 크기가 0→실측으로 바뀌는 초기 레이스/리사이즈에 대응
     const ro = new ResizeObserver(() => {
       cy.resize()
-      fitView()
+      if (fitted) cy.fit(undefined, FIT_PADDING)
     })
     ro.observe(containerRef.current)
 
@@ -438,7 +429,9 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
     })
 
     return () => {
+      clearTimeout(fitTimer)
       ro.disconnect()
+      layout.stop()
       cy.destroy()
       cyRef.current = null
     }

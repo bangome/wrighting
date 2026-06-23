@@ -17,6 +17,23 @@ export function useBoardNodes(boardItemId: string | undefined) {
   })
 }
 
+/** 프로젝트 전체 플롯/캔버스 카드(group·card) — 관계 그래프에서 노드로 표시 */
+export function useProjectBoardNodes(projectId: string | undefined) {
+  return useQuery({
+    queryKey: ['project-board-nodes', projectId],
+    enabled: !!projectId,
+    queryFn: async (): Promise<BoardNode[]> => {
+      const { data, error } = await supabase
+        .from('board_nodes')
+        .select('*')
+        .eq('project_id', projectId!)
+        .in('kind', ['group', 'card'])
+      if (error) throw error
+      return data as BoardNode[]
+    }
+  })
+}
+
 export function useBoardEdges(boardItemId: string | undefined) {
   return useQuery({
     queryKey: ['board-edges', boardItemId],

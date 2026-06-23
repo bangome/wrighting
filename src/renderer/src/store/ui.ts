@@ -15,6 +15,25 @@ export type SplitDir = 'right' | 'bottom'
 /** 탭이 속한 창 */
 export type Pane = 'main' | 'split'
 
+/** 관계 그래프 노드 분류 필터 카테고리 */
+export type GraphCategory =
+  | 'document'
+  | 'sheet'
+  | 'plotboard'
+  | 'folder'
+  | 'plot-card'
+  | 'plot-part-card'
+
+/** 필터 메뉴 표시 순서·라벨 */
+export const GRAPH_CATEGORIES: { key: GraphCategory; label: string }[] = [
+  { key: 'document', label: '문서' },
+  { key: 'sheet', label: '시트' },
+  { key: 'plotboard', label: '플롯보드' },
+  { key: 'folder', label: '폴더' },
+  { key: 'plot-card', label: '플롯 카드' },
+  { key: 'plot-part-card', label: '플롯 파트 카드' }
+]
+
 interface UiState {
   theme: Theme
   setTheme: (t: Theme) => void
@@ -45,6 +64,10 @@ interface UiState {
   /** 커맨드 팔레트 */
   paletteOpen: boolean
   setPaletteOpen: (v: boolean) => void
+  /** 관계 그래프 분류 필터 — 카테고리별 표시 여부 */
+  graphFilter: Record<GraphCategory, boolean>
+  toggleGraphCategory: (cat: GraphCategory) => void
+  setAllGraphCategories: (on: boolean) => void
 }
 
 const STORAGE_KEY = 'wrighting.theme'
@@ -157,5 +180,21 @@ export const useUi = create<UiState>((set) => ({
       return patch
     }),
   paletteOpen: false,
-  setPaletteOpen: (v) => set({ paletteOpen: v })
+  setPaletteOpen: (v) => set({ paletteOpen: v }),
+  graphFilter: {
+    document: true,
+    sheet: true,
+    plotboard: true,
+    folder: true,
+    'plot-card': true,
+    'plot-part-card': true
+  },
+  toggleGraphCategory: (cat) =>
+    set((s) => ({ graphFilter: { ...s.graphFilter, [cat]: !s.graphFilter[cat] } })),
+  setAllGraphCategories: (on) =>
+    set((s) => {
+      const next = { ...s.graphFilter }
+      for (const k of Object.keys(next) as GraphCategory[]) next[k] = on
+      return { graphFilter: next }
+    })
 }))

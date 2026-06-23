@@ -1,14 +1,17 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import cytoscape, { type Core, type ElementDefinition } from 'cytoscape'
-import type { Item, Link, Project } from '@shared/types'
+import { Filter, FileText, Layers, Columns3, Folder, SquareStack, StickyNote, Check } from 'lucide-react'
+import type { BoardNode, Item, Link, Project } from '@shared/types'
 import { useItems } from '../../lib/items'
 import { useLinks } from '../../lib/links'
-import { useUi } from '../../store/ui'
+import { useProjectBoardNodes } from '../../lib/boards'
+import { useUi, GRAPH_CATEGORIES, type GraphCategory } from '../../store/ui'
 
 /** 아이템 종류별 노드 색상 */
 const NODE_COLORS: Record<string, string> = {
   document: '#5b8fd6',
+  sheet: '#5fae7a', // 필터 메뉴 아이콘용(노드 타입은 sheet-* 사용)
   'sheet-character': '#5fae7a',
   'sheet-event': '#d97a7a',
   'sheet-place': '#b07cc0',
@@ -19,72 +22,153 @@ const NODE_COLORS: Record<string, string> = {
   'sheet-other': '#9aa0aa',
   folder: '#7a7a86',
   plotboard: '#e0883a',
-  canvas: '#cf6a6a'
+  canvas: '#cf6a6a',
+  'plot-card': '#d98c5f',
+  'plot-part-card': '#c9a96a'
 }
+
+/** 필터 메뉴 항목별 아이콘 */
+const CATEGORY_ICON: Record<GraphCategory, typeof FileText> = {
+  document: FileText,
+  sheet: Layers,
+  plotboard: Columns3,
+  folder: Folder,
+  'plot-card': SquareStack,
+  'plot-part-card': StickyNote
+}
+
+/** board 노드 그래프 id 접두사 (아이템 id 와 구분) */
+const BN = 'bn:'
 
 function nodeType(item: Item): string {
   if (item.type === 'sheet') return `sheet-${item.sheet_subtype ?? 'character'}`
   return item.type
 }
 
-function buildElements(items: Item[], links: Link[], focusId?: string): ElementDefinition[] {
-  const els: ElementDefinition[] = []
-  const valid = new Set(items.map((i) => i.id))
-  const degree = new Map<string, number>()
+/** 아이템 → 필터 카테고리 (노트는 문서로 취급) */
+function itemCategory(it: Item): GraphCategory | null {
+  switch (it.type) {
+    case 'document':
+    case 'notes':
+      return 'document'
+    case 'sheet':
+      return 'sheet'
+    case 'plotboard':
+    case 'canvas':
+      return 'plotboard'
+    case 'folder':
+      return 'folder'
+    default:
+      return null
+  }
+}
 
-  // 표시 대상 노드(폴더 제외) 집합
-  const shown = new Set<string>()
+/** board 노드 → 필터 카테고리 (막=플롯 카드, 카드=플롯 파트 카드) */
+function boardCategory(n: BoardNode): GraphCategory | null {
+  if (n.kind === 'group') return 'plot-card'
+  if (n.kind === 'card') return 'plot-part-card'
+  return null
+}
+
+function buildElements(
+  items: Item[],
+  links: Link[],
+  boardNodes: BoardNode[],
+  filter: Record<GraphCategory, boolean>,
+  focusId?: string
+): ElementDefinition[] {
+  // 카테고리 필터를 통과한 표시 대상
+  const shownItems = new Set<string>()
   for (const it of items) {
-    if (it.type === 'folder') continue
-    shown.add(it.id)
+    const cat = itemCategory(it)
+    if (cat && filter[cat]) shownItems.add(it.id)
+  }
+  const shownBoard = new Set<string>()
+  const boardNodeById = new Map(boardNodes.map((n) => [n.id, n]))
+  for (const n of boardNodes) {
+    const cat = boardCategory(n)
+    if (cat && filter[cat]) shownBoard.add(n.id)
   }
 
-  // degree 집계 (양쪽 노드가 모두 표시 대상인 링크만)
-  for (const l of links) {
-    if (!shown.has(l.from_item) || !shown.has(l.to_item)) continue
-    degree.set(l.from_item, (degree.get(l.from_item) ?? 0) + 1)
-    degree.set(l.to_item, (degree.get(l.to_item) ?? 0) + 1)
-  }
-
-  // focus 모드: 현재 항목 + 직접 연결된 이웃만 (ego 그래프)
-  const focused = !!focusId && shown.has(focusId)
-  let inScope = shown
-  if (focused) {
-    const ego = new Set<string>([focusId!])
+  // focus 모드: 현재 아이템 + 직접 연결 이웃(아이템)으로 한정
+  let focusItems: Set<string> | null = null
+  if (focusId && shownItems.has(focusId)) {
+    const ego = new Set<string>([focusId])
     for (const l of links) {
-      if (l.from_item === focusId && shown.has(l.to_item)) ego.add(l.to_item)
-      if (l.to_item === focusId && shown.has(l.from_item)) ego.add(l.from_item)
+      if (l.from_item === focusId && shownItems.has(l.to_item)) ego.add(l.to_item)
+      if (l.to_item === focusId && shownItems.has(l.from_item)) ego.add(l.from_item)
     }
-    inScope = ego
+    focusItems = ego
+  }
+  const itemVisible = (id: string): boolean =>
+    shownItems.has(id) && (!focusItems || focusItems.has(id))
+  const boardVisible = (n: BoardNode): boolean => {
+    if (!shownBoard.has(n.id)) return false
+    if (!focusItems) return true
+    // focus 모드에선 focus 범위의 보드/항목과 연관된 카드만
+    if (n.board_item_id && focusItems.has(n.board_item_id)) return true
+    return [...(n.doc_ids ?? []), ...(n.mention_ids ?? [])].some((id) => focusItems!.has(id))
   }
 
+  const edges: ElementDefinition[] = []
+  const degree = new Map<string, number>()
+  const addEdge = (id: string, source: string, target: string, rel: string, label = ''): void => {
+    edges.push({ data: { id, source, target, rel, label } })
+    degree.set(source, (degree.get(source) ?? 0) + 1)
+    degree.set(target, (degree.get(target) ?? 0) + 1)
+  }
+
+  // 1) 아이템-아이템 링크
+  for (const l of links) {
+    if (!itemVisible(l.from_item) || !itemVisible(l.to_item)) continue
+    addEdge(`e:${l.id}`, l.from_item, l.to_item, l.rel, l.label ?? '')
+  }
+  // 2) 플롯 카드/파트 카드 — 포함(컬럼·보드) + 참조(문서·언급) 엣지
+  for (const n of boardNodes) {
+    if (!boardVisible(n)) continue
+    const gid = BN + n.id
+    const col = n.col_id ? boardNodeById.get(n.col_id) : null
+    if (col && shownBoard.has(col.id) && boardVisible(col)) {
+      addEdge(`c:${n.id}`, BN + col.id, gid, 'contains')
+    } else if (n.board_item_id && itemVisible(n.board_item_id)) {
+      addEdge(`c:${n.id}`, n.board_item_id, gid, 'contains')
+    }
+    for (const tid of [...(n.doc_ids ?? []), ...(n.mention_ids ?? [])]) {
+      if (itemVisible(tid)) addEdge(`m:${n.id}:${tid}`, gid, tid, 'ref')
+    }
+  }
+
+  // 노드 생성 (degree 반영)
+  const nodes: ElementDefinition[] = []
   for (const it of items) {
-    if (!inScope.has(it.id)) continue
-    els.push({
+    if (!itemVisible(it.id)) continue
+    nodes.push({
       data: {
         id: it.id,
         label: it.title,
         type: nodeType(it),
         itemType: it.type,
         degree: degree.get(it.id) ?? 0,
-        focus: focused && it.id === focusId ? 1 : 0
+        focus: focusItems && it.id === focusId ? 1 : 0
       }
     })
   }
-  for (const l of links) {
-    if (!valid.has(l.from_item) || !valid.has(l.to_item)) continue
-    if (!inScope.has(l.from_item) || !inScope.has(l.to_item)) continue
-    els.push({
+  for (const n of boardNodes) {
+    if (!boardVisible(n)) continue
+    const gid = BN + n.id
+    nodes.push({
       data: {
-        id: `e:${l.id}`,
-        source: l.from_item,
-        target: l.to_item,
-        rel: l.rel,
-        label: l.label ?? ''
+        id: gid,
+        label: n.title || (n.kind === 'group' ? '막' : '파트 카드'),
+        type: n.kind === 'group' ? 'plot-card' : 'plot-part-card',
+        itemType: 'board',
+        boardItemId: n.board_item_id,
+        degree: degree.get(gid) ?? 0,
+        focus: 0
       }
     })
   }
-  return els
+  return [...nodes, ...edges]
 }
 
 /** 현재 테마의 CSS 변수 값을 읽는다 (그래프는 캔버스라 CSS 상속이 안 돼 직접 주입) */
@@ -144,6 +228,11 @@ function styles(c: ThemeColors): cytoscape.StylesheetCSS[] {
       }
     },
     ...colorSelectors,
+    // 플롯 카드·파트 카드는 사각형으로 구분
+    {
+      selector: 'node[itemType = "board"]',
+      css: { shape: 'round-rectangle' }
+    },
     // 현재 문서(focus) 노드 강조
     {
       selector: 'node[focus = 1]',
@@ -180,6 +269,11 @@ function styles(c: ThemeColors): cytoscape.StylesheetCSS[] {
         'arrow-scale': 0.8
       }
     },
+    // 포함(보드→카드, 컬럼→파트 카드): 점선·옅게
+    {
+      selector: 'edge[rel = "contains"]',
+      css: { 'line-color': c.edge, 'line-style': 'dotted', 'line-opacity': 0.5 }
+    },
     // 호버 강조: 선택된 노드 + 이웃만 또렷하게
     {
       selector: 'node.faded',
@@ -214,13 +308,18 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
   const cyRef = useRef<Core | null>(null)
   const { data: items } = useItems(project.id)
   const { data: links } = useLinks(project.id)
+  const { data: boardNodes } = useProjectBoardNodes(project.id)
   const theme = useUi((s) => s.theme)
+  const graphFilter = useUi((s) => s.graphFilter)
+  const toggleGraphCategory = useUi((s) => s.toggleGraphCategory)
+  const setAllGraphCategories = useUi((s) => s.setAllGraphCategories)
+  const [filterOpen, setFilterOpen] = useState(false)
 
   useEffect(() => {
     if (!containerRef.current || !items) return
     const cy = cytoscape({
       container: containerRef.current,
-      elements: buildElements(items, links ?? [], focusId),
+      elements: buildElements(items, links ?? [], boardNodes ?? [], graphFilter, focusId),
       style: styles(readThemeColors()),
       layout: {
         name: 'cose',
@@ -289,7 +388,12 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
     })
     ro.observe(containerRef.current)
 
-    cy.on('tap', 'node', (evt) => nav(`/p/${project.id}/i/${evt.target.id()}`))
+    // 노드 클릭 → 해당 항목으로 이동 (플롯 카드는 소속 보드로)
+    cy.on('tap', 'node', (evt) => {
+      const d = evt.target.data()
+      const target = d.itemType === 'board' ? d.boardItemId : evt.target.id()
+      if (target) nav(`/p/${project.id}/i/${target}`)
+    })
 
     // 호버 → 이웃 강조, 나머지 흐리게
     cy.on('mouseover', 'node', (evt) => {
@@ -307,9 +411,9 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
       cy.destroy()
       cyRef.current = null
     }
-  }, [items, links, project.id, nav, theme, focusId])
+  }, [items, links, boardNodes, graphFilter, project.id, nav, theme, focusId])
 
-  const hasNodes = (items ?? []).some((i) => i.type !== 'folder')
+  const hasNodes = (items ?? []).length > 0 || (boardNodes ?? []).length > 0
 
   return (
     <div className="relative h-full w-full bg-bg">
@@ -318,7 +422,56 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
           아직 노드가 없습니다. 문서·캐릭터를 만들고 링크로 연결하세요.
         </div>
       )}
-      <div ref={containerRef} className={`h-full w-full ${compact ? '' : ''}`} />
+
+      {/* 분류 필터 — 전체 그래프 뷰에서만 */}
+      {!compact && (
+        <div className="absolute right-3 top-3 z-10">
+          <button
+            className="flex items-center gap-1.5 rounded-[var(--radius-sm)] border border-border bg-bg-elev px-2.5 py-1.5 text-xs text-text-muted shadow-[var(--shadow)] hover:text-text"
+            onClick={() => setFilterOpen((o) => !o)}
+            title="분류 필터"
+          >
+            <Filter size={13} /> 분류
+          </button>
+          {filterOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setFilterOpen(false)} />
+              <div className="absolute right-0 top-9 z-20 w-52 rounded-app border border-border bg-bg-elev py-1.5 shadow-[var(--shadow)]">
+                {GRAPH_CATEGORIES.map(({ key, label }) => {
+                  const Icon = CATEGORY_ICON[key]
+                  const on = graphFilter[key]
+                  return (
+                    <button
+                      key={key}
+                      className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-sm hover:bg-bg-hover"
+                      onClick={() => toggleGraphCategory(key)}
+                    >
+                      <Check size={14} className={on ? 'text-text' : 'opacity-0'} />
+                      <Icon size={15} className="text-text-muted" style={{ color: NODE_COLORS[key] }} />
+                      <span className={`flex-1 ${on ? '' : 'text-text-faint'}`}>{label}</span>
+                    </button>
+                  )
+                })}
+                <div className="my-1 border-t border-border" />
+                <button
+                  className="w-full px-3 py-1.5 text-left text-sm text-text-muted hover:bg-bg-hover hover:text-text"
+                  onClick={() => setAllGraphCategories(true)}
+                >
+                  모두 선택
+                </button>
+                <button
+                  className="w-full px-3 py-1.5 text-left text-sm text-text-muted hover:bg-bg-hover hover:text-text"
+                  onClick={() => setAllGraphCategories(false)}
+                >
+                  선택 해제
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      <div ref={containerRef} className="h-full w-full" />
     </div>
   )
 }

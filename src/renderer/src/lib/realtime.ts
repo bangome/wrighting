@@ -46,6 +46,9 @@ export function useRealtimeSync(projectId: string | undefined): void {
             qc.invalidateQueries({ queryKey: ['board-nodes', row.board_item_id] })
             qc.invalidateQueries({ queryKey: ['board-edges', row.board_item_id] })
           }
+          // 그래프의 프로젝트 전체 플롯 카드 목록도 갱신
+          if (table === 'board_nodes')
+            qc.invalidateQueries({ queryKey: ['project-board-nodes', projectId] })
         }
       )
     }

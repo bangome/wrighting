@@ -31,7 +31,7 @@ export function Sidebar({ project }: Props): JSX.Element {
   const noteCount = (items ?? []).filter((i) => i.type === 'notes').length
 
   return (
-    <aside className="flex h-full flex-col border-r border-border bg-bg-sidebar">
+    <aside className="flex h-full min-h-0 flex-col overflow-hidden border-r border-border bg-bg-sidebar">
       {/* 작품 헤더 */}
       <button
         className="flex shrink-0 items-center gap-2 px-3 py-3 text-left hover:bg-bg-hover"

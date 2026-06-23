@@ -101,7 +101,8 @@ export function SheetView({ project, item }: { project: Project; item: Item }): 
   }
 
   return (
-    <div className="mx-auto h-full max-w-[760px] overflow-y-auto px-10 py-8">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-[760px] px-10 py-8">
       {/* 헤더 */}
       <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-app bg-bg-active text-xl font-semibold">
         {title.slice(0, 1)}
@@ -208,6 +209,7 @@ export function SheetView({ project, item }: { project: Project; item: Item }): 
 
       {/* 백링크 */}
       <Backlinks project={project} item={item} />
+      </div>
     </div>
   )
 }

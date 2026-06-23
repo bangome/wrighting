@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   FileText,
   Folder,
@@ -55,6 +56,8 @@ const SHEET_CHOICES: CreateChoice[] = SHEET_SUBTYPES.map((s) => ({
 interface Props {
   onChoose: (choice: CreateChoice) => void
   onClose: () => void
+  /** 메뉴를 띄울 기준 요소(트리거 버튼 등) — 사이드바 오버플로를 벗어나도록 body로 포털 */
+  anchorRef: React.RefObject<HTMLElement>
 }
 
 function MenuRow({
@@ -77,9 +80,26 @@ function MenuRow({
 }
 
 /** 생성 메뉴 — 새 문서/노트/시트(▶)/플롯보드/캔버스/폴더 */
-export function CreateMenu({ onChoose, onClose }: Props): JSX.Element {
+const MENU_W = 240 // w-60
+const MENU_H_EST = 320 // 화면 하단 넘침 판단용 추정 높이
+
+export function CreateMenu({ onChoose, onClose, anchorRef }: Props): JSX.Element {
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 트리거 위치 기준으로 fixed 좌표 계산 (우측 정렬, 아래로 펼침)
+  useLayoutEffect(() => {
+    const el = anchorRef.current
+    if (!el) return
+    const r = el.getBoundingClientRect()
+    const left = Math.max(8, r.right - MENU_W)
+    const top =
+      r.bottom + 4 + MENU_H_EST > window.innerHeight
+        ? Math.max(8, r.top - MENU_H_EST)
+        : r.bottom + 4
+    setPos({ left, top })
+  }, [anchorRef])
   const openSheet = (): void => {
     if (closeTimer.current) clearTimeout(closeTimer.current)
     setSheetOpen(true)
@@ -94,10 +114,18 @@ export function CreateMenu({ onChoose, onClose }: Props): JSX.Element {
     onClose()
   }
 
-  return (
+  return createPortal(
     <>
-      <div className="fixed inset-0 z-20" onClick={onClose} />
-      <div className="absolute right-0 top-7 z-30 w-60 rounded-app border border-border bg-bg-elev py-1.5 shadow-[var(--shadow)]">
+      <div className="fixed inset-0 z-40" onClick={onClose} />
+      <div
+        style={{
+          position: 'fixed',
+          left: pos?.left ?? -9999,
+          top: pos?.top ?? -9999,
+          visibility: pos ? 'visible' : 'hidden'
+        }}
+        className="z-50 w-60 rounded-app border border-border bg-bg-elev py-1.5 shadow-[var(--shadow)]"
+      >
         <MenuRow choice={TOP_CHOICES[0]} onClick={() => pick(TOP_CHOICES[0])} />
 
         {/* 새 시트 — 서브메뉴 */}
@@ -127,6 +155,7 @@ export function CreateMenu({ onChoose, onClose }: Props): JSX.Element {
           <MenuRow key={c.label} choice={c} onClick={() => pick(c)} />
         ))}
       </div>
-    </>
+    </>,
+    document.body
   )
 }

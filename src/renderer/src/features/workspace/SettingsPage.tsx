@@ -115,7 +115,8 @@ export function SettingsPage({ project }: { project?: Project }): JSX.Element {
   }
 
   return (
-    <div className="mx-auto max-w-2xl overflow-y-auto px-8 py-8">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-2xl px-8 py-8">
       <h2 className="mb-6 text-lg font-semibold">설정</h2>
 
       <section className="mb-6">
@@ -158,6 +159,7 @@ export function SettingsPage({ project }: { project?: Project }): JSX.Element {
           {cleared ? '캐시를 비웠습니다' : '로컬 캐시 비우기'}
         </button>
       </section>
+      </div>
     </div>
   )
 }

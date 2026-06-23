@@ -81,7 +81,8 @@ export function NotesPage({ project }: { project: Project }): JSX.Element {
   }
 
   return (
-    <div className="mx-auto h-full max-w-[840px] overflow-y-auto px-8 py-7">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-[840px] px-8 py-7">
       {/* 헤더 */}
       <div className="mb-5 flex items-center gap-2.5">
         <button className="icon-btn p-1" title="새 노트" onClick={addNote}>
@@ -122,6 +123,7 @@ export function NotesPage({ project }: { project: Project }): JSX.Element {
           />
         )
       })}
+      </div>
     </div>
   )
 }

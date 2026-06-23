@@ -64,7 +64,8 @@ export function NoteView({ project, item }: { project: Project; item: Item }): J
   }
 
   return (
-    <div className="mx-auto h-full max-w-[680px] overflow-y-auto px-10 py-8">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-[680px] px-10 py-8">
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
@@ -80,6 +81,7 @@ export function NoteView({ project, item }: { project: Project; item: Item }): J
       />
       <EditorContent editor={editor} />
       <Backlinks project={project} item={item} />
+      </div>
     </div>
   )
 }

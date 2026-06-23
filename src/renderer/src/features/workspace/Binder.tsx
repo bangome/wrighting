@@ -44,6 +44,7 @@ function Row({
   const [renaming, setRenaming] = useState(false)
   const [name, setName] = useState(node.item.title)
   const [dnd, setDnd] = useState<DropZone | null>(null)
+  const menuAnchor = useRef<HTMLSpanElement>(null)
   const { item } = node
   const Icon = iconFor(item)
   const isContainer = item.type === 'folder'
@@ -140,7 +141,7 @@ function Row({
             {item.title}
           </span>
         )}
-        <span className="relative opacity-0 group-hover:opacity-100">
+        <span ref={menuAnchor} className="relative opacity-0 group-hover:opacity-100">
           {isContainer && (
             <button
               className="text-text-faint hover:text-text"
@@ -154,6 +155,7 @@ function Row({
           )}
           {menu && (
             <CreateMenu
+              anchorRef={menuAnchor}
               onChoose={(c) => onCreateUnder(item.id, c)}
               onClose={() => setMenu(false)}
             />
@@ -199,6 +201,7 @@ export function Binder({ projectId }: { projectId: string }): JSX.Element {
   const syncHier = useSyncHierarchyLink(projectId)
   const [rootMenu, setRootMenu] = useState(false)
   const dragIdRef = useRef<string | null>(null)
+  const rootMenuAnchor = useRef<HTMLSpanElement>(null)
 
   // 노트는 별도 '노트' 탭에서 관리하므로 작품 트리에서는 제외
   const all = (items ?? []).filter((i) => i.type !== 'notes')
@@ -248,12 +251,13 @@ export function Binder({ projectId }: { projectId: string }): JSX.Element {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between px-3 pb-1 pt-3">
         <span className="text-xs font-medium uppercase tracking-wide text-text-faint">작품</span>
-        <span className="relative">
+        <span ref={rootMenuAnchor} className="relative">
           <button className="icon-btn p-1" onClick={() => setRootMenu(!rootMenu)} title="새로 만들기">
             <Plus size={15} />
           </button>
           {rootMenu && (
             <CreateMenu
+              anchorRef={rootMenuAnchor}
               onChoose={(c) => void handleCreate(null, c)}
               onClose={() => setRootMenu(false)}
             />

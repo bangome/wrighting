@@ -13,9 +13,10 @@ export function TabBar({ project }: { project: Project }): JSX.Element | null {
   const nav = useNavigate()
   const itemId = useCurrentItemId()
   const { data: items } = useItems(project.id)
-  const { tabs, closeTab, openSplit, moveTab } = useUi()
+  const { tabs, closeTab, closeAllTabs, closeOtherTabs, openSplit, moveTab } = useUi()
   const [splitMenu, setSplitMenu] = useState(false)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const [ctxMenu, setCtxMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   // 세로 휠을 가로 스크롤로 변환 (가로 휠 입력은 기본 동작 유지)
@@ -90,6 +91,10 @@ export function TabBar({ project }: { project: Project }): JSX.Element | null {
                 e.stopPropagation()
                 handleDrop(e, id)
               }}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setCtxMenu({ id, x: e.clientX, y: e.clientY })
+              }}
               className={`group flex max-w-[180px] shrink-0 items-center gap-1.5 self-center rounded-[var(--radius-sm)] px-2.5 py-1 text-sm ${
                 active ? 'bg-bg-active text-text' : 'text-text-muted hover:bg-bg-hover hover:text-text'
               } ${dragOverId === id ? 'shadow-[inset_2px_0_0_0_var(--accent)]' : ''}`}
@@ -112,6 +117,40 @@ export function TabBar({ project }: { project: Project }): JSX.Element | null {
           )
         })}
       </div>
+
+      {/* 탭 우클릭 컨텍스트 메뉴 */}
+      {ctxMenu && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setCtxMenu(null)} />
+          <div
+            className="fixed z-50 w-44 rounded-app border border-border bg-bg-elev py-1 text-sm shadow-[var(--shadow)]"
+            style={{ left: ctxMenu.x, top: ctxMenu.y }}
+          >
+            <button
+              className="block w-full px-3 py-1.5 text-left hover:bg-bg-hover"
+              onClick={() => { handleClose(ctxMenu.id); setCtxMenu(null) }}
+            >
+              이 탭 닫기
+            </button>
+            <button
+              className="block w-full px-3 py-1.5 text-left hover:bg-bg-hover"
+              onClick={() => {
+                closeOtherTabs(ctxMenu.id)
+                nav(`/p/${project.id}/i/${ctxMenu.id}`)
+                setCtxMenu(null)
+              }}
+            >
+              다른 탭 모두 닫기
+            </button>
+            <button
+              className="block w-full px-3 py-1.5 text-left hover:bg-bg-hover"
+              onClick={() => { closeAllTabs(); nav(`/p/${project.id}`); setCtxMenu(null) }}
+            >
+              모두 닫기
+            </button>
+          </div>
+        </>
+      )}
 
       {/* 우측 끝 — 분할 메뉴 */}
       <div className="relative flex shrink-0 items-center self-center">

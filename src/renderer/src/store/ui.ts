@@ -41,6 +41,8 @@ interface UiState {
   tabs: string[]
   openTab: (itemId: string) => void
   closeTab: (itemId: string) => void
+  closeAllTabs: () => void
+  closeOtherTabs: (keepId: string) => void
   /** 보조 패널(그래프·메모·분할) */
   rightPane: RightPane
   setRightPane: (p: RightPane) => void
@@ -99,6 +101,8 @@ export const useUi = create<UiState>((set) => ({
   openTab: (itemId) =>
     set((s) => (s.tabs.includes(itemId) ? s : { tabs: [...s.tabs, itemId] })),
   closeTab: (itemId) => set((s) => ({ tabs: s.tabs.filter((t) => t !== itemId) })),
+  closeAllTabs: () => set({ tabs: [] }),
+  closeOtherTabs: (keepId) => set((s) => ({ tabs: s.tabs.filter((t) => t === keepId) })),
   rightPane: { type: 'none' },
   setRightPane: (p) => set({ rightPane: p }),
 

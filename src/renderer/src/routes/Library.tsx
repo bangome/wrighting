@@ -83,7 +83,15 @@ export function Library(): JSX.Element {
     const file = e.target.files?.[0]
     const id = pendingUploadId.current
     if (!file || !id) return
-    updateCover.mutate({ id, file })
+    updateCover.mutate(
+      { id, file },
+      {
+        onError: (err) => {
+          const m = (err as { message?: string }).message ?? String(err)
+          alert(`표지 업로드 실패: ${m}\n\nSupabase에 'covers' 스토리지 버킷/정책이 필요합니다(마이그레이션 0016).`)
+        }
+      }
+    )
     e.target.value = ''
     pendingUploadId.current = null
   }
@@ -258,7 +266,10 @@ export function Library(): JSX.Element {
                       <button
                         className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-hover"
                         onClick={() => {
-                          removeCover.mutate(p.id)
+                          removeCover.mutate(p.id, {
+                            onError: (err) =>
+                              alert(`표지 제거 실패: ${(err as { message?: string }).message ?? String(err)}`)
+                          })
                           setMenuFor(null)
                         }}
                       >

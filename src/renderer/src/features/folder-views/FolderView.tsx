@@ -152,8 +152,8 @@ export function FolderView({ project, folder }: { project: Project; folder: Item
                   className="flex h-36 flex-col gap-2 rounded-app border border-border bg-bg-elev p-3 text-left hover:border-border-strong"
                 >
                   <div className="flex items-center gap-2 text-sm font-medium">
-                    <Icon size={14} className="text-text-muted" />
-                    <span className="truncate">{c.title}</span>
+                    <Icon size={14} className="shrink-0 text-text-muted" />
+                    <span className="min-w-0 flex-1 truncate">{c.title}</span>
                     {st && (
                       <span className="ml-auto flex items-center gap-1 text-xs text-text-faint">
                         <i className="h-2 w-2 rounded-full" style={{ background: st.color }} />

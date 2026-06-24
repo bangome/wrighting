@@ -52,7 +52,7 @@ export function MemoPanel({
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-scroll p-3">
         {!itemId ? (
           <p className="mt-8 text-center text-sm text-text-faint">
             항목을 열면 메모를 달 수 있습니다.

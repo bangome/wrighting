@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { Item, Project, RichDoc } from '@shared/types'
 import { useUpdateItem, useTrashItem } from '../../lib/items'
@@ -34,12 +34,20 @@ export function NoteCard({
   const [text, setText] = useState('')
   const [dirty, setDirty] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
     if (isLoading || loaded) return
     setText(doc?.text_plain ?? '')
     setLoaded(true)
   }, [isLoading, doc, loaded])
+
+  useEffect(() => {
+    const el = textareaRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [text])
 
   useDebouncedEffect(
     () => {
@@ -61,14 +69,15 @@ export function NoteCard({
   return (
     <div className="group rounded-app border border-border bg-bg-elev p-3 transition-colors focus-within:border-text-faint">
       <textarea
+        ref={textareaRef}
         value={text}
         onChange={(e) => {
           setText(e.target.value)
           setDirty(true)
         }}
         placeholder="메모를 입력하세요…"
-        rows={3}
-        className="min-h-[64px] w-full resize-none bg-transparent text-sm leading-relaxed outline-none placeholder:text-text-faint"
+        rows={1}
+        className="w-full resize-none overflow-hidden bg-transparent text-sm leading-relaxed outline-none placeholder:text-text-faint"
       />
       <div className="mt-2 flex items-center gap-2 border-t border-border pt-2 text-xs text-text-faint opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
         {targets.length > 0 && (

@@ -1,9 +1,17 @@
-import { useMemo, useState } from 'react'
+import { useRef, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { ImagePlus, X } from 'lucide-react'
 import type { Project } from '@shared/types'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
-import { useCreateProject, useDeleteProject, useProjects, useRenameProject } from '../lib/queries'
+import {
+  useCreateProject,
+  useDeleteProject,
+  useProjects,
+  useRemoveProjectCover,
+  useRenameProject,
+  useUpdateProjectCover
+} from '../lib/queries'
 
 function formatDate(iso: string): string {
   const d = new Date(iso)
@@ -15,14 +23,25 @@ function formatDate(iso: string): string {
     : `${d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}에 수정됨`
 }
 
-/** 작품 표지 (책등 느낌의 그라데이션) */
+/** 작품 표지 — 이미지가 있으면 표시, 없으면 책등 그라데이션 */
 function Cover({ project }: { project: Project }): JSX.Element {
-  // 제목 해시로 안정적인 색조 생성
   const hue = useMemo(() => {
     let h = 0
     for (const ch of project.title) h = (h * 31 + ch.charCodeAt(0)) % 360
     return h
   }, [project.title])
+
+  if (project.cover_path) {
+    const { data } = supabase.storage.from('covers').getPublicUrl(project.cover_path)
+    // updated_at으로 캐시 무효화
+    const src = `${data.publicUrl}?t=${encodeURIComponent(project.updated_at)}`
+    return (
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-app border border-border shadow-[var(--shadow)]">
+        <img src={src} alt={project.title} className="h-full w-full object-cover" />
+      </div>
+    )
+  }
+
   return (
     <div
       className="relative aspect-[3/4] w-full overflow-hidden rounded-app border border-border shadow-[var(--shadow)]"
@@ -45,10 +64,29 @@ export function Library(): JSX.Element {
   const createProject = useCreateProject()
   const renameProject = useRenameProject()
   const deleteProject = useDeleteProject()
+  const updateCover = useUpdateProjectCover()
+  const removeCover = useRemoveProjectCover()
   const [search, setSearch] = useState('')
   const [menuFor, setMenuFor] = useState<string | null>(null)
-  // 인라인 이름 변경 (Electron 렌더러는 window.prompt 미지원)
   const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null)
+
+  // 표지 업로드용 숨김 파일 입력 (프로젝트 공유)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const pendingUploadId = useRef<string | null>(null)
+
+  function openCoverPicker(projectId: string): void {
+    pendingUploadId.current = projectId
+    fileInputRef.current?.click()
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>): void {
+    const file = e.target.files?.[0]
+    const id = pendingUploadId.current
+    if (!file || !id) return
+    updateCover.mutate({ id, file })
+    e.target.value = ''
+    pendingUploadId.current = null
+  }
 
   function commitRename(): void {
     if (!renaming) return
@@ -68,7 +106,6 @@ export function Library(): JSX.Element {
       nav(`/p/${p.id}`)
     } catch (err) {
       console.error('새 작품 생성 실패:', err)
-      // Supabase(PostgREST) 에러는 message 외에 code/hint/details 에 핵심 단서가 있다.
       const e = err as { message?: string; code?: string; hint?: string; details?: string }
       const lines = [
         e.message ?? String(err),
@@ -89,6 +126,15 @@ export function Library(): JSX.Element {
       }}
       onClick={() => setMenuFor(null)}
     >
+      {/* 숨김 파일 입력 */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
       {/* 좌측 미니 사이드바 */}
       <aside className="flex flex-col border-r border-border/60 px-3 py-4">
         <div className="mb-6 flex items-center gap-2 px-2">
@@ -142,13 +188,25 @@ export function Library(): JSX.Element {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-x-7 gap-y-8">
             {filtered.map((p) => (
               <div key={p.id} className="group relative">
-                <button
-                  className="block w-full text-left"
-                  onClick={() => nav(`/p/${p.id}`)}
-                  onDoubleClick={() => nav(`/p/${p.id}`)}
-                >
+                {/* 표지 클릭 → 작품 열기 */}
+                <button className="block w-full text-left" onClick={() => nav(`/p/${p.id}`)}>
                   <Cover project={p} />
                 </button>
+
+                {/* 표지 변경 버튼 (호버 시) */}
+                <button
+                  className="absolute bottom-[calc(25%+0.5rem)] left-1/2 flex -translate-x-1/2 items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100"
+                  title="표지 변경"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openCoverPicker(p.id)
+                  }}
+                >
+                  <ImagePlus size={11} />
+                  표지 변경
+                </button>
+
+                {/* 이름 */}
                 {renaming?.id === p.id ? (
                   <input
                     autoFocus
@@ -171,6 +229,8 @@ export function Library(): JSX.Element {
                   </button>
                 )}
                 <div className="text-xs text-text-faint">{formatDate(p.updated_at)}</div>
+
+                {/* ⋯ 메뉴 */}
                 <button
                   className="absolute right-1 top-1 rounded bg-black/40 px-2 py-0.5 text-xs text-white opacity-0 group-hover:opacity-100"
                   onClick={(e) => {
@@ -182,9 +242,29 @@ export function Library(): JSX.Element {
                 </button>
                 {menuFor === p.id && (
                   <div
-                    className="absolute right-1 top-7 z-10 w-32 rounded-[var(--radius-sm)] border border-border bg-bg-elev py-1 text-sm shadow-[var(--shadow)]"
+                    className="absolute right-1 top-7 z-10 w-36 rounded-[var(--radius-sm)] border border-border bg-bg-elev py-1 text-sm shadow-[var(--shadow)]"
                     onClick={(e) => e.stopPropagation()}
                   >
+                    <button
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-hover"
+                      onClick={() => {
+                        openCoverPicker(p.id)
+                        setMenuFor(null)
+                      }}
+                    >
+                      <ImagePlus size={13} /> 표지 변경
+                    </button>
+                    {p.cover_path && (
+                      <button
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left hover:bg-bg-hover"
+                        onClick={() => {
+                          removeCover.mutate(p.id)
+                          setMenuFor(null)
+                        }}
+                      >
+                        <X size={13} /> 표지 제거
+                      </button>
+                    )}
                     <button
                       className="block w-full px-3 py-1.5 text-left hover:bg-bg-hover"
                       onClick={() => {

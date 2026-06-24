@@ -54,6 +54,35 @@ export function useDeleteProject() {
   })
 }
 
+/** 작품 표지 이미지 업로드 — covers 버킷에 upsert 후 cover_path 갱신 */
+export function useUpdateProjectCover() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }): Promise<void> => {
+      const { error: uploadError } = await supabase.storage
+        .from('covers')
+        .upload(id, file, { upsert: true, contentType: file.type })
+      if (uploadError) throw uploadError
+      const { error } = await supabase.from('projects').update({ cover_path: id }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] })
+  })
+}
+
+/** 작품 표지 제거 */
+export function useRemoveProjectCover() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string): Promise<void> => {
+      await supabase.storage.from('covers').remove([id])
+      const { error } = await supabase.from('projects').update({ cover_path: null }).eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] })
+  })
+}
+
 /** 단일 작품 로드 */
 export function useProject(projectId: string | undefined) {
   return useQuery({

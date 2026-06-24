@@ -12,6 +12,7 @@ import {
   useUpdateItem
 } from '../../lib/items'
 import { useSyncHierarchyLink } from '../../lib/links'
+import { useStatuses } from '../../lib/labels'
 import { iconFor } from './itemIcons'
 import { CreateMenu, type CreateChoice } from './CreateMenu'
 
@@ -22,6 +23,7 @@ interface RowProps {
   depth: number
   selectedId?: string
   projectId: string
+  statusColorMap: Map<string, string>
   onCreateUnder: (parentId: string, choice: CreateChoice) => void
   dragIdRef: React.MutableRefObject<string | null>
   onMove: (dragId: string, targetId: string, zone: DropZone) => void
@@ -32,6 +34,7 @@ function Row({
   depth,
   selectedId,
   projectId,
+  statusColorMap,
   onCreateUnder,
   dragIdRef,
   onMove
@@ -115,7 +118,15 @@ function Row({
         ) : (
           <span className="w-[14px] shrink-0" />
         )}
-        <Icon size={15} className="shrink-0 opacity-80" />
+        <span className="relative shrink-0">
+          <Icon size={15} className="opacity-80" />
+          {item.status_id && statusColorMap.has(item.status_id) && (
+            <span
+              className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-bg-sidebar"
+              style={{ background: statusColorMap.get(item.status_id) }}
+            />
+          )}
+        </span>
         {renaming ? (
           <input
             autoFocus
@@ -181,6 +192,7 @@ function Row({
               depth={depth + 1}
               selectedId={selectedId}
               projectId={projectId}
+              statusColorMap={statusColorMap}
               onCreateUnder={onCreateUnder}
               dragIdRef={dragIdRef}
               onMove={onMove}
@@ -196,12 +208,15 @@ export function Binder({ projectId }: { projectId: string }): JSX.Element {
   const { itemId } = useParams()
   const nav = useNavigate()
   const { data: items } = useItems(projectId)
+  const { data: statuses } = useStatuses(projectId)
   const create = useCreateItem(projectId)
   const move = useMoveItem(projectId)
   const syncHier = useSyncHierarchyLink(projectId)
   const [rootMenu, setRootMenu] = useState(false)
   const dragIdRef = useRef<string | null>(null)
   const rootMenuAnchor = useRef<HTMLSpanElement>(null)
+
+  const statusColorMap = new Map((statuses ?? []).map((s) => [s.id, s.color]))
 
   // 노트는 별도 '노트' 탭에서 관리하므로 작품 트리에서는 제외
   const all = (items ?? []).filter((i) => i.type !== 'notes')
@@ -286,6 +301,7 @@ export function Binder({ projectId }: { projectId: string }): JSX.Element {
               depth={0}
               selectedId={itemId}
               projectId={projectId}
+              statusColorMap={statusColorMap}
               onCreateUnder={(pid, c) => void handleCreate(pid, c)}
               dragIdRef={dragIdRef}
               onMove={handleMove}

@@ -389,6 +389,13 @@ function Column({
   onDeleteCard: (id: string) => void
 }): JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
+  const colBodyRef = useRef<HTMLTextAreaElement>(null)
+  useEffect(() => {
+    const el = colBodyRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [col.body])
 
   return (
     <div
@@ -417,12 +424,19 @@ function Column({
             placeholder="막 제목"
             className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-text-faint"
           />
-          <input
+          <textarea
+            ref={colBodyRef}
             defaultValue={col.body ?? ''}
             key={`${col.id}-body-${col.body}`}
+            onInput={(e) => {
+              const el = e.currentTarget
+              el.style.height = 'auto'
+              el.style.height = `${el.scrollHeight}px`
+            }}
             onBlur={(e) => onUpdateCol({ body: e.target.value })}
+            rows={1}
             placeholder="부제 (선택)"
-            className="mt-0.5 w-full bg-transparent text-xs text-text-muted outline-none placeholder:text-text-faint"
+            className="mt-0.5 w-full resize-none overflow-hidden bg-transparent text-xs text-text-muted outline-none placeholder:text-text-faint"
           />
         </div>
         <span className="mt-0.5 shrink-0 text-xs text-text-faint">{cards.length}</span>
@@ -432,7 +446,13 @@ function Column({
           </button>
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div
+                className="fixed inset-0 z-10"
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  setMenuOpen(false)
+                }}
+              />
               <div className="absolute right-0 z-20 mt-1 w-44 rounded-app border border-border bg-bg-elev py-1 text-sm shadow-[var(--shadow)]">
                 <div className="flex items-center gap-1 px-2 py-1">
                   {PALETTE.map((c, i) => (
@@ -529,7 +549,17 @@ function PartCard({
 }): JSX.Element {
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [tagEditing, setTagEditing] = useState(false)
+  const [tagValue, setTagValue] = useState('')
   const titleRef = useRef<HTMLInputElement>(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const el = bodyRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = `${el.scrollHeight}px`
+  }, [card.body])
 
   return (
     <div
@@ -556,7 +586,13 @@ function PartCard({
           </button>
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div
+                className="fixed inset-0 z-10"
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  setMenuOpen(false)
+                }}
+              />
               <div className="absolute right-0 z-20 mt-1 w-44 rounded-app border border-border bg-bg-elev py-1 text-sm shadow-[var(--shadow)]">
                 <div className="flex items-center gap-1 px-2 py-1">
                   {PALETTE.map((c, i) => (
@@ -604,12 +640,18 @@ function PartCard({
       </div>
 
       <textarea
+        ref={bodyRef}
         defaultValue={card.body ?? ''}
         key={`${card.id}-body-${card.body}`}
+        onInput={(e) => {
+          const el = e.currentTarget
+          el.style.height = 'auto'
+          el.style.height = `${el.scrollHeight}px`
+        }}
         onBlur={(e) => onUpdate({ body: e.target.value })}
-        rows={2}
+        rows={1}
         placeholder="비어있음"
-        className="mt-1 w-full resize-none bg-transparent text-xs leading-relaxed text-text-muted outline-none placeholder:text-text-faint"
+        className="mt-1 w-full resize-none overflow-hidden bg-transparent text-xs leading-relaxed text-text-muted outline-none placeholder:text-text-faint"
       />
 
       {/* 문서 */}
@@ -628,21 +670,28 @@ function PartCard({
         <div className="mb-1 flex items-center gap-1 text-xs text-text-faint">
           <Tag size={11} /> 태그
         </div>
-        <input
-          defaultValue={(card.tags ?? []).join(', ')}
-          key={`${card.id}-tags-${(card.tags ?? []).join(',')}`}
-          onBlur={(e) => {
-            const tags = e.target.value
-              .split(',')
-              .map((t) => t.trim())
-              .filter(Boolean)
-            onUpdate({ tags })
-          }}
-          placeholder="쉼표로 구분하여 태그를 입력하세요"
-          className="w-full bg-transparent text-xs outline-none placeholder:text-text-faint"
-        />
-        {(card.tags ?? []).length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
+        {tagEditing ? (
+          <input
+            autoFocus
+            value={tagValue}
+            onChange={(e) => setTagValue(e.target.value)}
+            onBlur={() => {
+              const tags = tagValue.split(',').map((t) => t.trim()).filter(Boolean)
+              onUpdate({ tags })
+              setTagEditing(false)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+              if (e.key === 'Escape') setTagEditing(false)
+            }}
+            placeholder="쉼표로 구분하여 태그를 입력하세요"
+            className="w-full bg-transparent text-xs outline-none placeholder:text-text-faint"
+          />
+        ) : (card.tags ?? []).length > 0 ? (
+          <div
+            className="flex cursor-text flex-wrap gap-1"
+            onClick={() => { setTagValue((card.tags ?? []).join(', ')); setTagEditing(true) }}
+          >
             {(card.tags ?? []).map((t) => (
               <span
                 key={t}
@@ -651,6 +700,13 @@ function PartCard({
                 {t}
               </span>
             ))}
+          </div>
+        ) : (
+          <div
+            className="cursor-text text-xs text-text-faint"
+            onClick={() => { setTagValue(''); setTagEditing(true) }}
+          >
+            쉼표로 구분하여 태그를 입력하세요
           </div>
         )}
       </div>
@@ -727,7 +783,13 @@ function RefSection({
           </button>
           {open && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+              <div
+                className="fixed inset-0 z-10"
+                onPointerDown={(e) => {
+                  e.stopPropagation()
+                  setOpen(false)
+                }}
+              />
               <div className="absolute left-0 z-20 mt-1 max-h-56 w-56 overflow-y-auto rounded-app border border-border bg-bg-elev py-1 text-sm shadow-[var(--shadow)]">
                 {candidates.length === 0 ? (
                   <div className="px-3 py-2 text-xs text-text-faint">선택할 항목이 없습니다.</div>

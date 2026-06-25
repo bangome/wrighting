@@ -26,6 +26,22 @@ function fail(msg: string): ToolResult {
   return { content: [{ type: 'text', text: `ERROR: ${msg}` }], isError: true }
 }
 
+/** MCP(AI)가 작성/수정한 본문임을 나타내는 기록 라벨 */
+const MCP_SNAPSHOT_LABEL = 'AI 기록'
+
+/**
+ * 본문 기록(snapshots)을 남긴다. 문서·시트 본문 모두 동일 테이블에 쌓여
+ * 웹앱의 기록 패널·복원에서 그대로 보인다(item_id 로 구분). 빈 본문은 기록하지 않는다.
+ */
+async function addSnapshot(
+  itemId: string,
+  projectId: string,
+  content: unknown,
+  label = MCP_SNAPSHOT_LABEL
+): Promise<void> {
+  await sb.from('snapshots').insert({ item_id: itemId, project_id: projectId, content, label })
+}
+
 function tool(
   name: string,
   description: string,
@@ -250,15 +266,17 @@ tool(
     if (error) throw error
     const body = args.text ?? ''
     const { char_count, word_count } = counts(body)
+    const content = textToRichDoc(body)
     const { error: dErr } = await sb.from('documents').insert({
       item_id: item.id,
       project_id: pid,
-      content: textToRichDoc(body),
+      content,
       text_plain: body,
       word_count,
       char_count
     })
     if (dErr) throw dErr
+    if (body.trim()) await addSnapshot(item.id, pid, content)
     return { itemId: item.id, char_count }
   }
 )
@@ -293,14 +311,16 @@ tool(
       .select('id')
       .single()
     if (error) throw error
+    const body = args.bodyText != null ? textToRichDoc(args.bodyText) : null
     const { error: sErr } = await sb.from('sheets').insert({
       item_id: item.id,
       project_id: pid,
       attributes: args.attributes ?? {},
       tags: args.tags ?? [],
-      body: args.bodyText != null ? textToRichDoc(args.bodyText) : null
+      body
     })
     if (sErr) throw sErr
+    if (args.bodyText?.trim()) await addSnapshot(item.id, pid, body)
     return { itemId: item.id }
   }
 )
@@ -443,11 +463,12 @@ tool(
   async ({ itemId, text }) => {
     const pid = await itemProjectId(itemId)
     const { char_count, word_count } = counts(text)
+    const content = textToRichDoc(text)
     const { error } = await sb.from('documents').upsert(
       {
         item_id: itemId,
         project_id: pid,
-        content: textToRichDoc(text),
+        content,
         text_plain: text,
         word_count,
         char_count
@@ -455,6 +476,7 @@ tool(
       { onConflict: 'item_id' }
     )
     if (error) throw error
+    await addSnapshot(itemId, pid, content)
     return { itemId, char_count }
   }
 )
@@ -482,17 +504,20 @@ tool(
   async ({ itemId, attributes, tags, bodyText }) => {
     const pid = await itemProjectId(itemId)
     const { data: cur } = await sb.from('sheets').select('*').eq('item_id', itemId).maybeSingle()
+    const body = bodyText != null ? textToRichDoc(bodyText) : (cur?.body ?? null)
     const { error } = await sb.from('sheets').upsert(
       {
         item_id: itemId,
         project_id: pid,
         attributes: attributes ?? cur?.attributes ?? {},
         tags: tags ?? cur?.tags ?? [],
-        body: bodyText != null ? textToRichDoc(bodyText) : (cur?.body ?? null)
+        body
       },
       { onConflict: 'item_id' }
     )
     if (error) throw error
+    // 본문이 새로 전달돼 바뀐 경우에만 기록을 남긴다.
+    if (bodyText != null && bodyText.trim()) await addSnapshot(itemId, pid, body)
     return { itemId, ok: true }
   }
 )

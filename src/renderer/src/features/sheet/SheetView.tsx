@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { EditorContent, useEditor, type Content } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
-import { Plus, X } from 'lucide-react'
+import { Clock, Plus, X } from 'lucide-react'
 import type { Item, Project, RichDoc } from '@shared/types'
 import { SHEET_SUBTYPE_LABEL } from '@shared/types'
 
@@ -10,13 +10,17 @@ import { SHEET_SUBTYPE_LABEL } from '@shared/types'
 const CATEGORY_KEY = '분류'
 import { useSheet, useSaveSheet } from '../../lib/sheets'
 import { useUpdateItem } from '../../lib/items'
+import { useAutoSnapshot } from '../../lib/snapshots'
 import { useDebouncedEffect } from '../editor/useDebounced'
+import { HistoryPanel } from '../editor/HistoryPanel'
 import { Backlinks } from '../graph/Backlinks'
 
 export function SheetView({ project, item }: { project: Project; item: Item }): JSX.Element {
   const { data: sheet, isLoading } = useSheet(item.id)
   const saveSheet = useSaveSheet()
   const updateItem = useUpdateItem(project.id)
+  const maybeSnapshot = useAutoSnapshot(item.id, project.id)
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const [title, setTitle] = useState(item.title)
   const [desc, setDesc] = useState(item.synopsis ?? '')
@@ -52,13 +56,16 @@ export function SheetView({ project, item }: { project: Project; item: Item }): 
   useDebouncedEffect(
     () => {
       if (!editor || !dirty) return
+      const body = editor.getJSON() as RichDoc
       saveSheet.mutate({
         itemId: item.id,
         projectId: project.id,
         attributes: attrs,
         tags,
-        body: editor.getJSON() as RichDoc
+        body
       })
+      // 저장될 때마다 자동 버전 기록 (간격·변경 조건은 훅 내부에서 판단)
+      maybeSnapshot(body)
       setDirty(false)
     },
     [dirty, attrs, tags],
@@ -205,7 +212,25 @@ export function SheetView({ project, item }: { project: Project; item: Item }): 
       </div>
 
       {/* 본문 */}
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-medium text-text-muted">본문</span>
+        <button
+          className="icon-btn"
+          title="본문 기록"
+          onClick={() => setHistoryOpen(true)}
+        >
+          <Clock size={15} />
+        </button>
+      </div>
       <EditorContent editor={editor} />
+      {historyOpen && editor && (
+        <HistoryPanel
+          editor={editor}
+          project={project}
+          item={item}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
 
       {/* 백링크 */}
       <Backlinks project={project} item={item} />

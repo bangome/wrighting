@@ -1,5 +1,5 @@
 import { Extension } from '@tiptap/core'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Plugin, PluginKey, TextSelection } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { EditorState, Transaction } from '@tiptap/pm/state'
 
@@ -55,6 +55,11 @@ function buildDeco(doc: EditorState['doc'], matches: SearchMatch[], active: numb
   return DecorationSet.create(doc, decos)
 }
 
+export function selectSearchMatch(tr: Transaction, match: SearchMatch | undefined): Transaction {
+  if (!match) return tr
+  return tr.setSelection(TextSelection.create(tr.doc, match.from, match.to)).scrollIntoView()
+}
+
 /** 본문 내 찾기/바꾸기 — 데코레이션 하이라이트 + 순회 + 치환 */
 export const SearchExtension = Extension.create({
   name: 'wrightingSearch',
@@ -67,7 +72,7 @@ export const SearchExtension = Extension.create({
           const matches = findMatches(state.doc, term)
           if (dispatch) {
             const tr = state.tr.setMeta(searchPluginKey, { term, matches, active: 0 })
-            dispatch(tr)
+            dispatch(selectSearchMatch(tr, matches[0]))
           }
           return true
         },
@@ -77,7 +82,10 @@ export const SearchExtension = Extension.create({
           const s = searchPluginKey.getState(state)
           if (!s || s.matches.length === 0) return false
           const active = (s.active + 1) % s.matches.length
-          if (dispatch) dispatch(state.tr.setMeta(searchPluginKey, { ...s, active }))
+          if (dispatch) {
+            const tr = state.tr.setMeta(searchPluginKey, { ...s, active })
+            dispatch(selectSearchMatch(tr, s.matches[active]))
+          }
           return true
         },
       prevMatch:
@@ -86,7 +94,10 @@ export const SearchExtension = Extension.create({
           const s = searchPluginKey.getState(state)
           if (!s || s.matches.length === 0) return false
           const active = (s.active - 1 + s.matches.length) % s.matches.length
-          if (dispatch) dispatch(state.tr.setMeta(searchPluginKey, { ...s, active }))
+          if (dispatch) {
+            const tr = state.tr.setMeta(searchPluginKey, { ...s, active })
+            dispatch(selectSearchMatch(tr, s.matches[active]))
+          }
           return true
         },
       replaceCurrent:

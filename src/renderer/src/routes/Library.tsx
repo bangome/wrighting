@@ -1,6 +1,6 @@
 import { useRef, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ImagePlus, X } from 'lucide-react'
+import { ImagePlus, LogOut, X } from 'lucide-react'
 import type { Project } from '@shared/types'
 import { useAuth } from '../lib/auth'
 import { supabase } from '../lib/supabase'
@@ -127,7 +127,7 @@ export function Library(): JSX.Element {
 
   return (
     <div
-      className="grid h-full grid-cols-[220px_1fr] bg-bg"
+      className="grid h-full grid-cols-1 bg-bg md:grid-cols-[220px_1fr]"
       style={{
         backgroundImage:
           'radial-gradient(circle at 20% 30%, rgba(255,255,255,0.04), transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.03), transparent 35%)'
@@ -143,8 +143,8 @@ export function Library(): JSX.Element {
         onChange={handleFileChange}
       />
 
-      {/* 좌측 미니 사이드바 */}
-      <aside className="flex flex-col border-r border-border/60 px-3 py-4">
+      {/* 좌측 미니 사이드바 (모바일에선 숨김 — 로그아웃은 헤더로 이동) */}
+      <aside className="hidden flex-col border-r border-border/60 px-3 py-4 md:flex">
         <div className="mb-6 flex items-center gap-2 px-2">
           <div className="flex h-6 w-6 items-center justify-center rounded bg-bg-active text-xs font-bold">
             M
@@ -168,14 +168,14 @@ export function Library(): JSX.Element {
       </aside>
 
       {/* 본문 */}
-      <main className="overflow-y-auto px-10 py-8">
-        <div className="mb-8 flex items-center gap-4">
+      <main className="overflow-y-auto px-4 py-6 sm:px-6 md:px-10 md:py-8">
+        <div className="mb-6 flex flex-wrap items-center gap-3 sm:mb-8">
           <h1 className="text-xl font-semibold">모든 작품</h1>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="검색"
-            className="ml-2 w-72 rounded-[var(--radius-sm)] border border-border bg-bg-elev px-3 py-1.5 text-sm outline-none focus:border-accent"
+            className="order-last w-full rounded-[var(--radius-sm)] border border-border bg-bg-elev px-3 py-1.5 text-sm outline-none focus:border-accent sm:order-none sm:ml-2 sm:w-72"
           />
           <button
             onClick={() => void handleCreate()}
@@ -183,6 +183,14 @@ export function Library(): JSX.Element {
             className="ml-auto rounded-full bg-white px-4 py-1.5 text-sm font-medium text-black disabled:opacity-50"
           >
             + 새 작품
+          </button>
+          {/* 모바일: 로그아웃(데스크톱은 좌측 사이드바에 있음) */}
+          <button
+            className="icon-btn md:hidden"
+            title={`로그아웃 (${session?.user.email ?? ''})`}
+            onClick={() => void supabase.auth.signOut()}
+          >
+            <LogOut size={18} />
           </button>
         </div>
 
@@ -193,7 +201,7 @@ export function Library(): JSX.Element {
             아직 작품이 없습니다. <span className="text-text">+ 새 작품</span>으로 시작하세요.
           </div>
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-x-7 gap-y-8">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(170px,1fr))] sm:gap-x-7 sm:gap-y-8">
             {filtered.map((p) => (
               <div key={p.id} className="group relative">
                 {/* 표지 클릭 → 작품 열기 */}

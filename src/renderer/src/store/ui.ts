@@ -66,6 +66,9 @@ interface UiState {
   /** 커맨드 팔레트 */
   paletteOpen: boolean
   setPaletteOpen: (v: boolean) => void
+  /** 모바일 사이드바(드로어) 열림 여부 — 데스크톱에선 CSS로 항상 표시 */
+  sidebarOpen: boolean
+  setSidebarOpen: (v: boolean) => void
   /** 관계 그래프 분류 필터 — 카테고리별 표시 여부 */
   graphFilter: Record<GraphCategory, boolean>
   toggleGraphCategory: (cat: GraphCategory) => void
@@ -185,6 +188,8 @@ export const useUi = create<UiState>((set) => ({
     }),
   paletteOpen: false,
   setPaletteOpen: (v) => set({ paletteOpen: v }),
+  sidebarOpen: false,
+  setSidebarOpen: (v) => set({ sidebarOpen: v }),
   graphFilter: {
     document: true,
     sheet: true,

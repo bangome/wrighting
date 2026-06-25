@@ -188,9 +188,9 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
   return (
     <div className="flex h-full flex-col">
       {editor && (
-        <div className="flex items-stretch border-b border-border">
+        <div className="no-scrollbar flex items-stretch overflow-x-auto border-b border-border">
           <EditorToolbar editor={editor} charCount={charCount} />
-          <div className="flex items-center border-l border-border px-2">
+          <div className="flex shrink-0 items-center border-l border-border px-2">
             <DocTools
               editor={editor}
               project={project}
@@ -203,7 +203,7 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
       <div className="relative min-h-0 flex-1">
         {editor && searchOpen && <SearchPanel editor={editor} onClose={() => setSearchOpen(false)} />}
         <div
-          className={`h-full overflow-y-auto px-8 py-8 ${prefs.focusMode ? 'focus-mode' : ''}`}
+          className={`h-full overflow-y-auto px-4 py-6 sm:px-8 sm:py-8 ${prefs.focusMode ? 'focus-mode' : ''}`}
           style={{
             fontSize: `${16 * prefs.fontScale}px`,
             fontFamily: fontStack(prefs.fontFamily),

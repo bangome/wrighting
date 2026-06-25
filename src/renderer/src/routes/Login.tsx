@@ -34,10 +34,10 @@ export function Login(): JSX.Element {
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-bg">
+    <div className="flex h-full items-center justify-center bg-bg p-4">
       <form
         onSubmit={submit}
-        className="w-[340px] rounded-app border border-border bg-bg-elev p-8 shadow-[var(--shadow)]"
+        className="w-full max-w-[340px] rounded-app border border-border bg-bg-elev p-6 shadow-[var(--shadow)] sm:p-8"
       >
         <h1 className="mb-1 text-2xl font-semibold tracking-tight">wrighting</h1>
         <p className="mb-6 text-sm text-text-muted">한국어 소설 집필 워크스페이스</p>

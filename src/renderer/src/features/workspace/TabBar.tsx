@@ -152,8 +152,8 @@ export function TabBar({ project }: { project: Project }): JSX.Element | null {
         </>
       )}
 
-      {/* 우측 끝 — 분할 메뉴 */}
-      <div className="relative flex shrink-0 items-center self-center">
+      {/* 우측 끝 — 분할 메뉴 (좁은 화면에선 숨김) */}
+      <div className="relative hidden shrink-0 items-center self-center md:flex">
         <button
           className="icon-btn p-1"
           title="창 분할"

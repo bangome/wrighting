@@ -410,22 +410,59 @@ export function RelationGraph({ project, compact, focusId }: Props): JSX.Element
     })
     ro.observe(containerRef.current)
 
-    // 노드 클릭 → 해당 항목으로 이동 (플롯 카드는 소속 보드로)
-    cy.on('tap', 'node', (evt) => {
-      const d = evt.target.data()
-      const target = d.itemType === 'board' ? d.boardItemId : evt.target.id()
+    // 선택된 노드(고정 강조) — 한 번 클릭하면 유지, 다시 클릭/배경 클릭/더블클릭 시 해제
+    let selectedId: string | null = null
+    const navTo = (node: cytoscape.NodeSingular): void => {
+      const d = node.data()
+      const target = d.itemType === 'board' ? d.boardItemId : node.id()
       if (target) nav(`/p/${project.id}/i/${target}`)
+    }
+    // 노드 + 1차 연결 이웃만 또렷하게, 나머지는 흐리게
+    const highlightEgo = (node: cytoscape.NodeSingular): void => {
+      const neighborhood = node.closedNeighborhood()
+      cy.elements().addClass('faded').removeClass('highlight')
+      neighborhood.removeClass('faded').addClass('highlight')
+    }
+    const clearHighlight = (): void => {
+      cy.elements().removeClass('faded highlight')
+    }
+
+    // 한 번 클릭 → 해당 노드 중심 1차 연결 강조(토글), 더블클릭 → 문서로 진입
+    cy.on('tap', 'node', (evt) => {
+      const node = evt.target as cytoscape.NodeSingular
+      const id = node.id()
+      if (selectedId === id) {
+        selectedId = null
+        clearHighlight()
+      } else {
+        selectedId = id
+        highlightEgo(node)
+      }
+    })
+    cy.on('dbltap', 'node', (evt) => {
+      selectedId = null
+      navTo(evt.target as cytoscape.NodeSingular)
+    })
+    // 배경 클릭 → 선택 해제
+    cy.on('tap', (evt) => {
+      if (evt.target === cy) {
+        selectedId = null
+        clearHighlight()
+      }
     })
 
-    // 호버 → 이웃 강조, 나머지 흐리게
+    // 호버 → 이웃 강조(임시). 마우스가 벗어나면 선택된 노드 강조로 복원
     cy.on('mouseover', 'node', (evt) => {
-      const node = evt.target
-      const neighborhood = node.closedNeighborhood()
-      cy.elements().addClass('faded')
-      neighborhood.removeClass('faded').addClass('highlight')
+      highlightEgo(evt.target as cytoscape.NodeSingular)
     })
     cy.on('mouseout', 'node', () => {
-      cy.elements().removeClass('faded highlight')
+      if (selectedId) {
+        const sel = cy.getElementById(selectedId)
+        if (sel.nonempty()) highlightEgo(sel as cytoscape.NodeSingular)
+        else clearHighlight()
+      } else {
+        clearHighlight()
+      }
     })
 
     return () => {

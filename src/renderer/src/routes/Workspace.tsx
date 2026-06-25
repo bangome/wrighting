@@ -18,7 +18,6 @@ import { NotesPage } from '../features/notes/NotesPage'
 import { TrashPage } from '../features/workspace/TrashPage'
 import { SettingsPage } from '../features/workspace/SettingsPage'
 import { HarnessPage } from '../features/harness/HarnessPage'
-import { Placeholder } from '../features/workspace/Placeholder'
 import { CommandPalette } from '../features/command-palette/CommandPalette'
 import { useUi } from '../store/ui'
 import { useRealtimeSync } from '../lib/realtime'
@@ -68,8 +67,6 @@ export function Workspace(): JSX.Element {
           <Route path="trash" element={<TrashPage project={project} />} />
           <Route path="settings" element={<SettingsPage project={project} />} />
           <Route path="harness" element={<HarnessPage project={project} />} />
-          <Route path="import" element={<Placeholder title="가져오기" />} />
-          <Route path="feedback" element={<Placeholder title="피드백 보내기" />} />
         </Routes>
       </main>
     </div>

@@ -6,8 +6,6 @@ import {
   StickyNote,
   Bot,
   Trash2,
-  Download,
-  MessageCircle,
   Settings
 } from 'lucide-react'
 import type { Project } from '@shared/types'
@@ -77,12 +75,6 @@ export function Sidebar({ project }: Props): JSX.Element {
       <div className="mt-auto flex shrink-0 flex-col gap-0.5 border-t border-border px-1.5 py-2">
         <NavLink to={`${base}/trash`} className={navClass}>
           <Trash2 size={16} /> 휴지통
-        </NavLink>
-        <NavLink to={`${base}/import`} className={navClass}>
-          <Download size={16} /> 가져오기
-        </NavLink>
-        <NavLink to={`${base}/feedback`} className={navClass}>
-          <MessageCircle size={16} /> 피드백 보내기
         </NavLink>
         <NavLink to={`${base}/settings`} className={navClass}>
           <Settings size={16} /> 설정

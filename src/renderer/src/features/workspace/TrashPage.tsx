@@ -1,5 +1,6 @@
 import type { Project } from '@shared/types'
 import { usePurgeItem, useRestoreItem, useTrashedItems } from '../../lib/items'
+import { subtreeIds } from '../../lib/tree'
 import { iconFor } from './itemIcons'
 
 export function TrashPage({ project }: { project: Project }): JSX.Element {
@@ -15,15 +16,21 @@ export function TrashPage({ project }: { project: Project }): JSX.Element {
         <p className="text-text-faint">휴지통이 비어 있습니다.</p>
       ) : (
         <ul className="flex flex-col gap-1">
-          {items!.map((it) => {
+          {(items ?? []).map((it) => {
             const Icon = iconFor(it)
+            const childCount = Math.max(0, subtreeIds(items ?? [], it.id).length - 1)
             return (
               <li
                 key={it.id}
                 className="group flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-2 hover:bg-bg-hover"
               >
                 <Icon size={15} className="text-text-muted" />
-                <span className="flex-1 truncate text-sm">{it.title}</span>
+                <span className="flex-1 truncate text-sm">
+                  {it.title}
+                  {childCount > 0 && (
+                    <span className="ml-2 text-xs text-text-faint">하위 {childCount}개 포함</span>
+                  )}
+                </span>
                 <button
                   className="text-xs text-text-muted hover:text-text"
                   onClick={() => restore.mutate(it.id)}
@@ -33,7 +40,8 @@ export function TrashPage({ project }: { project: Project }): JSX.Element {
                 <button
                   className="text-xs text-danger hover:underline"
                   onClick={() => {
-                    if (confirm(`'${it.title}'을(를) 영구 삭제할까요?`)) purge.mutate(it.id)
+                    const suffix = childCount > 0 ? ` 및 하위 ${childCount}개` : ''
+                    if (confirm(`'${it.title}'${suffix}을(를) 영구 삭제할까요?`)) purge.mutate(it.id)
                   }}
                 >
                   영구 삭제

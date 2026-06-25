@@ -20,6 +20,7 @@ import { useEditorPrefs, fontStack, platformGoal } from '../../store/editorPrefs
 import { createMention, type MentionSource } from './mention/mention'
 import { SearchExtension } from './search/searchExtension'
 import { SearchPanel } from './search/SearchPanel'
+import { createSmartQuotes, type SmartQuoteSource } from './smartQuotes'
 
 interface Props {
   project: Project
@@ -88,6 +89,8 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
   // 멘션 후보 홀더 — 에디터는 1회 생성되므로 ref로 최신 아이템 목록을 전달
   const mentionSource = useRef<MentionSource>({ items: [] })
   mentionSource.current.items = items ?? []
+  const smartQuoteSource = useRef<SmartQuoteSource>({ enabled: prefs.smartQuotes })
+  smartQuoteSource.current.enabled = prefs.smartQuotes
 
   const editor = useEditor({
     extensions: useMemo(
@@ -99,6 +102,7 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
         CharacterCount,
         TableKit.configure({ table: { resizable: true } }),
         createMention(mentionSource.current),
+        createSmartQuotes(smartQuoteSource.current),
         SearchExtension
       ],
       []

@@ -40,3 +40,20 @@ export function childrenOf(items: Item[], parentId: string | null): Item[] {
     .filter((i) => i.parent_id === parentId)
     .sort((a, b) => a.sort_order - b.sort_order)
 }
+
+export function subtreeIds(items: Item[], rootId: string): string[] {
+  const byParent = new Map<string | null, Item[]>()
+  for (const item of items) {
+    const siblings = byParent.get(item.parent_id) ?? []
+    siblings.push(item)
+    byParent.set(item.parent_id, siblings)
+  }
+
+  const ids: string[] = []
+  const visit = (id: string): void => {
+    ids.push(id)
+    for (const child of byParent.get(id) ?? []) visit(child.id)
+  }
+  visit(rootId)
+  return ids
+}

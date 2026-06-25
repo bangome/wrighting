@@ -6,7 +6,7 @@ import { supabase } from './supabase'
 const SHARE_BASE = (import.meta.env.VITE_SHARE_BASE_URL as string | undefined) ?? 'https://wrighting.vercel.app'
 
 export function shareUrl(token: string): string {
-  return `${SHARE_BASE.replace(/\/$/, '')}/s/${token}`
+  return `${SHARE_BASE.replace(/\/$/, '')}/#/s/${token}`
 }
 
 export function useShare(itemId: string | undefined) {

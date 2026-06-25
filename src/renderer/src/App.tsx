@@ -3,6 +3,7 @@ import { useAuth } from './lib/auth'
 import { Login } from './routes/Login'
 import { Library } from './routes/Library'
 import { Workspace } from './routes/Workspace'
+import { SharedDocument } from './routes/SharedDocument'
 
 function Splash(): JSX.Element {
   return (
@@ -25,6 +26,7 @@ export default function App(): JSX.Element {
         path="/login"
         element={loading ? <Splash /> : session ? <Navigate to="/" replace /> : <Login />}
       />
+      <Route path="/s/:token" element={<SharedDocument />} />
       <Route
         path="/"
         element={

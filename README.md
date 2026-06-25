@@ -56,6 +56,43 @@ npm run dev          # Electron + Vite 개발 모드
 ```
 웹으로만 띄우려면 Vite dev 서버를 직접 사용하거나 `npm run build` 후 `out/renderer`를 정적 호스팅하세요.
 
+### MCP 서버
+
+MCP는 정적 웹앱과 별도 서버 프로세스로 배포합니다. 로컬에서는 아래처럼 실행합니다.
+
+```bash
+npm run dev:mcp
+```
+
+배포 환경에서는 빌드 후 Node 서버를 시작합니다.
+
+```bash
+npm run build:mcp
+npm run start:mcp
+```
+
+- Health check: `GET /health`
+- MCP endpoint: `/mcp` (Streamable HTTP)
+- 환경변수: `PORT`, `MCP_HOST`, `MCP_ALLOWED_ORIGIN`
+
+웹앱은 `out/renderer`를 정적 호스팅하고, MCP 서버는 Render/Railway/Fly.io 같은 Node 서버 호스팅에 따로 올리는 구성을 권장합니다.
+
+Vercel에 올릴 때는 `vercel.json` 설정을 사용합니다.
+
+```bash
+npm install -g vercel
+vercel login
+vercel
+```
+
+Vercel 프로젝트 설정은 아래처럼 둡니다.
+
+- Build Command: `npm run build:web`
+- Output Directory: `out/renderer`
+- Environment Variables: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, 필요 시 `MCP_ALLOWED_ORIGIN`
+
+배포 후 MCP 주소는 `https://<프로젝트 도메인>/mcp`입니다. 상태 확인은 `https://<프로젝트 도메인>/health`로 합니다.
+
 ## 빌드 · 패키징
 
 ```bash

@@ -3,7 +3,7 @@ import type { Share } from '@shared/types'
 import { supabase } from './supabase'
 
 /** 공개 뷰어 기준 URL (.env: VITE_SHARE_BASE_URL). 공개 페이지는 후속 단계. */
-const SHARE_BASE = (import.meta.env.VITE_SHARE_BASE_URL as string | undefined) ?? 'https://wrighting.app'
+const SHARE_BASE = (import.meta.env.VITE_SHARE_BASE_URL as string | undefined) ?? 'https://wrighting.vercel.app'
 
 export function shareUrl(token: string): string {
   return `${SHARE_BASE.replace(/\/$/, '')}/s/${token}`

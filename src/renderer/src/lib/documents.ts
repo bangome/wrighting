@@ -48,6 +48,8 @@ export function useSaveDocument() {
     },
     onSuccess: (_d, vars) => {
       qc.invalidateQueries({ queryKey: ['document', vars.itemId] })
+      qc.invalidateQueries({ queryKey: ['body-updates', vars.projectId] })
+      qc.invalidateQueries({ queryKey: ['items', vars.projectId] })
     }
   })
 }

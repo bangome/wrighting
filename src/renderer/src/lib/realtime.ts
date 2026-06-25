@@ -5,8 +5,8 @@ import { supabase } from './supabase'
 /** 테이블명 → 무효화할 쿼리키 (1인 다기기 동기화) */
 const TABLE_QUERY: Record<string, (projectId: string) => unknown[][]> = {
   items: (p) => [['items', p], ['items-trash', p]],
-  documents: () => [],
-  sheets: () => [],
+  documents: (p) => [['body-updates', p]],
+  sheets: (p) => [['body-updates', p]],
   links: (p) => [['links', p]],
   labels: (p) => [['labels', p]],
   statuses: (p) => [['statuses', p]],

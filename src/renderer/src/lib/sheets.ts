@@ -43,6 +43,10 @@ export function useSaveSheet() {
       )
       if (error) throw error
     },
-    onSuccess: (_d, vars) => qc.invalidateQueries({ queryKey: ['sheet', vars.itemId] })
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['sheet', vars.itemId] })
+      qc.invalidateQueries({ queryKey: ['body-updates', vars.projectId] })
+      qc.invalidateQueries({ queryKey: ['items', vars.projectId] })
+    }
   })
 }

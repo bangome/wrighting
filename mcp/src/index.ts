@@ -242,7 +242,7 @@ tool(
 
 tool(
   'create_document',
-  '새 문서를 만든다. 본문은 평문/간이 마크다운(#·##·###). 생성된 item id 반환.',
+  '새 문서를 만든다. 본문은 평문/간이 마크다운(#·##·###). parentId(카멜케이스)로 폴더 하위에 배치 가능. 생성된 item id 반환.',
   {
     ...proj,
     title: z.string(),

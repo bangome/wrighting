@@ -10,6 +10,9 @@ import tailwindcss from '@tailwindcss/vite'
  */
 export default defineConfig({
   root: resolve('src/renderer'),
+  // .env 는 저장소 루트에 있으므로 envDir 을 루트로 지정(root=src/renderer 라 기본값이면 못 찾음).
+  // Vercel 은 대시보드 환경변수를 process.env 로 주입하므로 무관하나, 로컬 build:web/dev 에 필요.
+  envDir: resolve('.'),
   // SPA 라우팅: 상대경로 base 로 어느 경로에 올려도 동작
   base: './',
   resolve: {

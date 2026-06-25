@@ -99,7 +99,7 @@ export function Workspace(): JSX.Element {
   const mobileOverlay = isMobile && (rightPane.type === 'memo' || rightPane.type === 'graph')
 
   return (
-    <div className="grid h-full grid-cols-1 overflow-hidden bg-bg md:grid-cols-[260px_1fr]">
+    <div className="grid h-full min-h-0 grid-cols-1 overflow-hidden bg-bg md:grid-cols-[260px_1fr]">
       {/* 모바일 드로어 배경 */}
       {sidebarOpen && (
         <div
@@ -109,15 +109,15 @@ export function Workspace(): JSX.Element {
       )}
       {/* 사이드바: 모바일=오프캔버스 드로어, 데스크톱=고정 컬럼 */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-[280px] max-w-[85vw] transition-transform duration-200 md:static md:z-auto md:w-auto md:max-w-none md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-[280px] max-w-[85vw] transition-transform duration-200 md:static md:z-auto md:h-full md:min-h-0 md:w-auto md:max-w-none md:translate-x-0 md:overflow-hidden ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <Sidebar project={project} />
       </div>
-      <div className="grid min-h-0 min-w-0 grid-rows-[auto_1fr] overflow-hidden">
+      <div className="grid h-full min-h-0 min-w-0 grid-rows-[auto_1fr] overflow-hidden">
         <TopBar project={project} onMenu={() => setSidebarOpen(true)} />
-        <div className="min-h-0 min-w-0 overflow-hidden">{content}</div>
+        <div className="h-full min-h-0 min-w-0 overflow-hidden">{content}</div>
       </div>
 
       {/* 모바일: 메모·관계 그래프 전체 화면 오버레이 */}

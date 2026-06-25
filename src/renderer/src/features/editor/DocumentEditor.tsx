@@ -7,6 +7,7 @@ import TextAlign from '@tiptap/extension-text-align'
 import CharacterCount from '@tiptap/extension-character-count'
 import { TableKit } from '@tiptap/extension-table'
 import { useNavigate } from 'react-router-dom'
+import { Check, Copy } from 'lucide-react'
 import type { Item, Project, RichDoc } from '@shared/types'
 import { useDocument, useSaveDocument } from '../../lib/documents'
 import { useItems, useUpdateItem } from '../../lib/items'
@@ -23,6 +24,32 @@ import { SearchPanel } from './search/SearchPanel'
 interface Props {
   project: Project
   item: Item
+}
+
+/** 클릭 한 번으로 텍스트를 클립보드에 복사하는 작은 버튼 (복사 후 1.5초간 체크 표시) */
+function CopyButton({ getText, label }: { getText: () => string; label: string }): JSX.Element {
+  const [copied, setCopied] = useState(false)
+  return (
+    <button
+      type="button"
+      title={label}
+      aria-label={label}
+      onClick={async () => {
+        const text = getText().trim()
+        if (!text) return
+        try {
+          await navigator.clipboard.writeText(text)
+          setCopied(true)
+          window.setTimeout(() => setCopied(false), 1500)
+        } catch {
+          // 클립보드 접근 실패(권한 등) — 조용히 무시
+        }
+      }}
+      className="inline-flex h-6 w-6 items-center justify-center rounded text-text-faint transition hover:bg-bg-hover hover:text-text"
+    >
+      {copied ? <Check size={13} className="text-ok" /> : <Copy size={13} />}
+    </button>
+  )
 }
 
 /** RichDoc JSON에서 멘션된 아이템 id 집합을 추출 */
@@ -183,19 +210,27 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
             lineHeight: prefs.lineHeight
           }}
         >
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={commitTitle}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                commitTitle()
-                editor?.commands.focus()
-              }
-            }}
-            placeholder="제목 없음"
-            className="mx-auto mb-6 block w-full max-w-[720px] bg-transparent text-center text-2xl font-bold outline-none placeholder:text-text-faint"
-          />
+          <div className="relative mx-auto mb-6 w-full max-w-[720px]">
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  commitTitle()
+                  editor?.commands.focus()
+                }
+              }}
+              placeholder="제목 없음"
+              className="block w-full bg-transparent px-8 text-center text-2xl font-bold outline-none placeholder:text-text-faint"
+            />
+            <div className="absolute right-0 top-1/2 -translate-y-1/2">
+              <CopyButton getText={() => title} label="제목 복사" />
+            </div>
+          </div>
+          <div className="mx-auto mb-1 flex w-full max-w-[720px] justify-end">
+            <CopyButton getText={() => editor?.getText() ?? ''} label="본문 복사" />
+          </div>
           <EditorContent editor={editor} />
         </div>
       </div>

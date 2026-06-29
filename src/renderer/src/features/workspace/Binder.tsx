@@ -1,208 +1,13 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import type { Item } from '@shared/types'
-import { buildTree, type TreeNode } from '../../lib/tree'
-import {
-  isAncestor,
-  useCreateItem,
-  useItems,
-  useMoveItem,
-  useTrashItem,
-  useUpdateItem
-} from '../../lib/items'
+import { buildTree } from '../../lib/tree'
+import { isAncestor, useCreateItem, useItems, useMoveItem } from '../../lib/items'
 import { useSyncHierarchyLink } from '../../lib/links'
 import { useStatuses } from '../../lib/labels'
-import { iconFor } from './itemIcons'
 import { CreateMenu, type CreateChoice } from './CreateMenu'
-
-type DropZone = 'before' | 'after' | 'inside'
-
-interface RowProps {
-  node: TreeNode
-  depth: number
-  selectedId?: string
-  projectId: string
-  statusColorMap: Map<string, string>
-  onCreateUnder: (parentId: string, choice: CreateChoice) => void
-  dragIdRef: React.MutableRefObject<string | null>
-  onMove: (dragId: string, targetId: string, zone: DropZone) => void
-}
-
-function Row({
-  node,
-  depth,
-  selectedId,
-  projectId,
-  statusColorMap,
-  onCreateUnder,
-  dragIdRef,
-  onMove
-}: RowProps): JSX.Element {
-  const nav = useNavigate()
-  const update = useUpdateItem(projectId)
-  const trash = useTrashItem(projectId)
-  const [open, setOpen] = useState(true)
-  const [menu, setMenu] = useState(false)
-  const [renaming, setRenaming] = useState(false)
-  const [name, setName] = useState(node.item.title)
-  const [dnd, setDnd] = useState<DropZone | null>(null)
-  const menuAnchor = useRef<HTMLSpanElement>(null)
-  const { item } = node
-  const Icon = iconFor(item)
-  const isContainer = item.type === 'folder'
-  const hasChildren = node.children.length > 0
-  const selected = selectedId === item.id
-
-  function zoneFromEvent(e: React.DragEvent): DropZone {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const y = e.clientY - rect.top
-    // 모든 항목(문서·시트·폴더)이 하위 항목을 받을 수 있음
-    if (y > rect.height * 0.25 && y < rect.height * 0.75) return 'inside'
-    return y < rect.height / 2 ? 'before' : 'after'
-  }
-
-  return (
-    <li>
-      <div
-        draggable
-        onDragStart={(e) => {
-          dragIdRef.current = item.id
-          e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('text/plain', item.id)
-        }}
-        onDragEnd={() => {
-          dragIdRef.current = null
-          setDnd(null)
-        }}
-        onDragOver={(e) => {
-          const dragId = dragIdRef.current
-          if (!dragId || dragId === item.id) return
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'move'
-          const zone = zoneFromEvent(e)
-          setDnd(zone)
-          if (zone === 'inside' && hasChildren && !open) setOpen(true)
-        }}
-        onDragLeave={() => setDnd(null)}
-        onDrop={(e) => {
-          e.preventDefault()
-          e.stopPropagation()
-          const dragId = dragIdRef.current
-          const zone = dnd
-          setDnd(null)
-          if (dragId && zone && dragId !== item.id) onMove(dragId, item.id, zone)
-        }}
-        className={`group relative flex items-center gap-1 rounded-[var(--radius-sm)] px-1.5 py-[5px] text-sm ${
-          selected ? 'bg-bg-active text-text' : 'text-text-muted hover:bg-bg-hover hover:text-text'
-        } ${dnd === 'inside' ? 'ring-1 ring-inset ring-accent bg-bg-hover' : ''}`}
-        style={{ paddingLeft: 6 + depth * 14 }}
-        onClick={() => nav(`/p/${projectId}/i/${item.id}`)}
-      >
-        {dnd === 'before' && (
-          <span className="pointer-events-none absolute inset-x-1 top-0 h-0.5 rounded bg-accent" />
-        )}
-        {dnd === 'after' && (
-          <span className="pointer-events-none absolute inset-x-1 bottom-0 h-0.5 rounded bg-accent" />
-        )}
-        {hasChildren ? (
-          <button
-            className="shrink-0 text-text-faint"
-            onClick={(e) => {
-              e.stopPropagation()
-              setOpen(!open)
-            }}
-          >
-            {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
-        ) : (
-          <span className="w-[14px] shrink-0" />
-        )}
-        <span className="relative shrink-0">
-          <Icon size={15} className="opacity-80" />
-          {item.status_id && statusColorMap.has(item.status_id) && (
-            <span
-              className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border border-bg-sidebar"
-              style={{ background: statusColorMap.get(item.status_id) }}
-            />
-          )}
-        </span>
-        {renaming ? (
-          <input
-            autoFocus
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            onBlur={() => {
-              setRenaming(false)
-              if (name.trim() && name !== item.title)
-                update.mutate({ id: item.id, patch: { title: name.trim() } })
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-              if (e.key === 'Escape') {
-                setName(item.title)
-                setRenaming(false)
-              }
-            }}
-            className="min-w-0 flex-1 rounded border border-accent bg-bg-elev-2 px-1 py-0 text-sm outline-none"
-          />
-        ) : (
-          <span className="min-w-0 flex-1 truncate" onDoubleClick={() => setRenaming(true)}>
-            {item.title}
-          </span>
-        )}
-        <span ref={menuAnchor} className="relative opacity-0 group-hover:opacity-100">
-          {isContainer && (
-            <button
-              className="text-text-faint hover:text-text"
-              onClick={(e) => {
-                e.stopPropagation()
-                setMenu(!menu)
-              }}
-            >
-              <Plus size={14} />
-            </button>
-          )}
-          {menu && (
-            <CreateMenu
-              anchorRef={menuAnchor}
-              onChoose={(c) => onCreateUnder(item.id, c)}
-              onClose={() => setMenu(false)}
-            />
-          )}
-        </span>
-        <button
-          className="opacity-0 group-hover:opacity-100 text-text-faint hover:text-danger"
-          onClick={(e) => {
-            e.stopPropagation()
-            if (confirm(`'${item.title}'을(를) 휴지통으로 보낼까요?`)) trash.mutate(item.id)
-          }}
-          title="휴지통으로"
-        >
-          ×
-        </button>
-      </div>
-      {open && hasChildren && (
-        <ul>
-          {node.children.map((c) => (
-            <Row
-              key={c.item.id}
-              node={c}
-              depth={depth + 1}
-              selectedId={selectedId}
-              projectId={projectId}
-              statusColorMap={statusColorMap}
-              onCreateUnder={onCreateUnder}
-              dragIdRef={dragIdRef}
-              onMove={onMove}
-            />
-          ))}
-        </ul>
-      )}
-    </li>
-  )
-}
+import { BinderRow, type DropZone } from './BinderRow'
 
 export function Binder({ projectId }: { projectId: string }): JSX.Element {
   const { itemId } = useParams()
@@ -295,12 +100,13 @@ export function Binder({ projectId }: { projectId: string }): JSX.Element {
       >
         <ul>
           {tree.map((node) => (
-            <Row
+            <BinderRow
               key={node.item.id}
               node={node}
               depth={0}
               selectedId={itemId}
               projectId={projectId}
+              statuses={statuses ?? []}
               statusColorMap={statusColorMap}
               onCreateUnder={(pid, c) => void handleCreate(pid, c)}
               dragIdRef={dragIdRef}

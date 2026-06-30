@@ -1,6 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'path'
 import { promises as fs } from 'fs'
+import { AiReviewRequestSchema } from '../shared/aiReview'
+import { reviewWithGemini } from './aiReview'
 
 interface HarnessAgentFile {
   name: string
@@ -187,6 +189,9 @@ app.whenReady().then(() => {
   ipcMain.handle('harness:read', (_e, dir: string) => readHarness(dir))
   ipcMain.handle('harness:write', (_e, dir: string, bundle: HarnessBundle) =>
     writeHarness(dir, bundle)
+  )
+  ipcMain.handle('ai:reviewDocument', (_e, input: unknown) =>
+    reviewWithGemini(AiReviewRequestSchema.parse(input))
   )
 
   createWindow()

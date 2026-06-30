@@ -6,6 +6,9 @@
   "functions": {
     "api/mcp.ts": {
       "maxDuration": 30
+    },
+    "api/ai-review.js": {
+      "maxDuration": 60
     }
   },
   "rewrites": [

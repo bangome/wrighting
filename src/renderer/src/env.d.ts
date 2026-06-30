@@ -21,6 +21,54 @@ interface WrightingHarnessBundle {
   claudeMd: string | null
 }
 
+interface WrightingAiReviewPartCard {
+  boardTitle: string
+  columnTitle: string | null
+  title: string
+  body: string | null
+  tags: readonly string[]
+  mentionedTitles: readonly string[]
+}
+
+interface WrightingAiReviewRequest {
+  documentTitle: string
+  documentText: string
+  format: 'webNovel' | 'genreNovel' | 'literaryNovel' | 'script'
+  audience: 'platformEditor' | 'contestJudge' | 'coreReader' | 'lightReader'
+  focus: readonly WrightingAiReviewFocusKey[]
+  directness: number
+  partCards: readonly WrightingAiReviewPartCard[]
+  referenceDocuments: readonly string[]
+  additionalGuidance: string
+}
+
+type WrightingAiReviewFocusKey =
+  | 'story'
+  | 'character'
+  | 'pacing'
+  | 'prose'
+  | 'emotion'
+  | 'marketability'
+  | 'worldbuilding'
+
+interface WrightingAiReviewSection {
+  title: string
+  body: string
+  evidence: string[]
+  suggestions: string[]
+}
+
+interface WrightingAiReviewResponse {
+  overallScore: number
+  scores: Array<{ key: WrightingAiReviewFocusKey; label: string; score: number; reason: string }>
+  summary: string
+  strengths: WrightingAiReviewSection[]
+  risks: WrightingAiReviewSection[]
+  revisionPlan: string[]
+  audienceRead: string
+  partCardNotes: string[]
+}
+
 /** Electron preload가 노출하는 데스크톱 브리지(웹에서는 undefined) */
 interface WrightingDesktop {
   platform: string
@@ -32,6 +80,9 @@ interface WrightingDesktop {
       dir: string,
       bundle: WrightingHarnessBundle
     ) => Promise<{ agents: number; skills: number }>
+  }
+  ai: {
+    reviewDocument: (input: WrightingAiReviewRequest) => Promise<WrightingAiReviewResponse>
   }
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import { Clock, Download, Languages, Repeat2, Search, Settings2, Share2, Sigma } from 'lucide-react'
+import { Clock, Download, Languages, Repeat2, Search, Settings2, Share2, Sigma, Sparkles } from 'lucide-react'
 import type { Item, Project, RichDoc } from '@shared/types'
 import { hanjaCandidates } from '../../lib/hanja'
 import { useCreateShare, useRevokeShare, useShare, shareUrl } from '../../lib/shares'
@@ -8,6 +8,7 @@ import { useEditorPrefs, FONT_FAMILIES, LINE_HEIGHTS, PLATFORMS } from '../../st
 import { exportDocument, type ExportFormat } from '../export/exporters'
 import { RepetitionPanel } from './RepetitionPanel'
 import { HistoryPanel } from './HistoryPanel'
+import { AiReviewPanel } from './AiReviewPanel'
 
 const SPECIALS = ['…', '—', '·', '※', '○', '●', '◇', '◆', '□', '■', '★', '☆', '「', '」', '『', '』', '〈', '〉', '《', '》', '‥', '→', '←', '↑', '↓', '“', '”', '‘', '’']
 
@@ -45,6 +46,7 @@ export function DocTools({
 }): JSX.Element {
   const [pop, setPop] = useState<Pop>(null)
   const [historyOpen, setHistoryOpen] = useState(false)
+  const [aiReviewOpen, setAiReviewOpen] = useState(false)
   const prefs = useEditorPrefs()
   const { data: share } = useShare(item.id)
   const createShare = useCreateShare(project.id)
@@ -147,6 +149,13 @@ export function DocTools({
           item={item}
           onClose={() => setHistoryOpen(false)}
         />
+      )}
+
+      <button className="icon-btn" title="AI 리뷰" onClick={() => setAiReviewOpen(true)}>
+        <Sparkles size={16} />
+      </button>
+      {aiReviewOpen && (
+        <AiReviewPanel editor={editor} project={project} item={item} onClose={() => setAiReviewOpen(false)} />
       )}
 
       {/* 내보내기 */}

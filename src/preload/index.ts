@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { HarnessBundle } from '../shared/types'
+import type { AiReviewRequest, AiReviewResponse } from '../shared/aiReview'
 
 /**
  * 데스크톱 브리지. 웹에서는 window.wrighting 이 undefined 이고, Electron에서만 존재한다.
@@ -16,6 +17,10 @@ const desktop = {
     /** 묶음을 <dir>/.claude 에 .md 파일로 기록 */
     write: (dir: string, bundle: HarnessBundle): Promise<{ agents: number; skills: number }> =>
       ipcRenderer.invoke('harness:write', dir, bundle)
+  },
+  ai: {
+    reviewDocument: (input: AiReviewRequest): Promise<AiReviewResponse> =>
+      ipcRenderer.invoke('ai:reviewDocument', input)
   }
 }
 

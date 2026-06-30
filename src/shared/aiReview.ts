@@ -117,6 +117,93 @@ export const AiReviewResponseSchema = z.object({
 
 export type AiReviewResponse = z.infer<typeof AiReviewResponseSchema>
 
+const SCORE_KEY_ALIASES: Record<string, ReviewFocusKey> = {
+  plot: 'story',
+  narrative: 'story',
+  story: 'story',
+  '이야기': 'story',
+  '플롯': 'story',
+  '서사': 'story',
+  character: 'character',
+  characters: 'character',
+  '인물': 'character',
+  '캐릭터': 'character',
+  pacing: 'pacing',
+  pace: 'pacing',
+  tempo: 'pacing',
+  tension: 'pacing',
+  '호흡': 'pacing',
+  '전개': 'pacing',
+  prose: 'prose',
+  style: 'prose',
+  sentence: 'prose',
+  '문체': 'prose',
+  '서술': 'prose',
+  '문장': 'prose',
+  emotion: 'emotion',
+  emotional: 'emotion',
+  '감정': 'emotion',
+  '감정선': 'emotion',
+  marketability: 'marketability',
+  commercial: 'marketability',
+  hook: 'marketability',
+  '시장성': 'marketability',
+  '상품성': 'marketability',
+  '후킹': 'marketability',
+  worldbuilding: 'worldbuilding',
+  world: 'worldbuilding',
+  setting: 'worldbuilding',
+  '세계관': 'worldbuilding',
+  '설정': 'worldbuilding'
+}
+
+function objectRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function normalizeScoreKey(score: unknown, index: number): ReviewFocusKey {
+  const record = objectRecord(score)
+  const values = [record.key, record.label].filter(
+    (value): value is string => typeof value === 'string'
+  )
+  for (const value of values) {
+    const normalized = value.trim().toLowerCase()
+    const exact = SCORE_KEY_ALIASES[normalized]
+    if (exact) return exact
+    for (const [needle, key] of Object.entries(SCORE_KEY_ALIASES)) {
+      if (normalized.includes(needle)) return key
+    }
+  }
+  return REVIEW_FOCUS_KEYS[index] ?? REVIEW_FOCUS_KEYS[0]
+}
+
+function normalizeRevisionPlan(value: unknown): string[] {
+  const plan = Array.isArray(value) ? value.filter((entry): entry is string => typeof entry === 'string') : []
+  const fallback = [
+    '가장 낮은 점수의 항목부터 장면 단위로 수정한다.',
+    '파트 카드의 의도와 본문 전개가 어긋나는 지점을 먼저 맞춘다.',
+    '수정 후 첫 문단과 마지막 문단의 후킹을 다시 점검한다.'
+  ]
+  return [...plan, ...fallback].slice(0, Math.max(3, plan.length))
+}
+
+export function normalizeAiReviewResponse(raw: unknown): AiReviewResponse {
+  const record = objectRecord(raw)
+  const scores = Array.isArray(record.scores)
+    ? record.scores.map((score, index) => ({
+        ...objectRecord(score),
+        key: normalizeScoreKey(score, index)
+      }))
+    : []
+  return AiReviewResponseSchema.parse({
+    ...record,
+    scores,
+    revisionPlan: normalizeRevisionPlan(record.revisionPlan)
+  })
+}
+
 export interface AiReviewPrompt {
   readonly systemInstruction: string
   readonly userPrompt: string
@@ -180,6 +267,8 @@ export function buildAiReviewPrompt(input: AiReviewRequest): AiReviewPrompt {
     '   - 라이트 독자: 이해 용이성, 초반 집중도, 정보 과부하, 문장 접근성',
     '5. 증거는 본문이나 파트 카드에서 짧게 요약하고, 개선안은 바로 고쳐 쓸 수 있는 액션으로 작성한다.',
     '6. 점수는 0~5 소수 한 자리까지 허용한다. 전체 점수는 선택 항목과 대상 독자 적합도를 종합한다.',
+    `7. scores[].key는 반드시 다음 영문 키 중 하나만 쓴다: ${REVIEW_FOCUS_KEYS.join(', ')}.`,
+    '8. revisionPlan은 반드시 3개 이상 작성한다.',
     '',
     '# 참고 문서 메모',
     listLines(input.referenceDocuments),

@@ -1,8 +1,8 @@
 import { z } from 'zod'
 import {
   AI_REVIEW_MODEL,
-  AiReviewResponseSchema,
   buildAiReviewPrompt,
+  normalizeAiReviewResponse,
   type AiReviewRequest,
   type AiReviewResponse
 } from '../shared/aiReview'
@@ -74,5 +74,5 @@ export async function reviewWithGemini(input: AiReviewRequest): Promise<AiReview
       .trim() ?? ''
   if (!text) throw new GeminiReviewError('Gemini 리뷰 응답이 비어 있습니다.')
   const json: unknown = JSON.parse(extractJson(text))
-  return AiReviewResponseSchema.parse(json)
+  return normalizeAiReviewResponse(json)
 }

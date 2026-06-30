@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildAiReviewPrompt, type AiReviewRequest } from './aiReview'
+import { buildAiReviewPrompt, normalizeAiReviewResponse, type AiReviewRequest } from './aiReview'
 
 describe('buildAiReviewPrompt', () => {
   it('includes the target audience rubric when reviewing for platform editors', () => {
@@ -29,6 +29,33 @@ describe('buildAiReviewPrompt', () => {
     expect(prompt.userPrompt).toContain('몸을 말려야 하는 회차')
     expect(prompt.userPrompt).toContain('동물 토론 이후 경주 행동')
     expect(prompt.userPrompt).toContain('코커스 경주')
+  })
+})
+
+describe('normalizeAiReviewResponse', () => {
+  it('repairs alias score keys and pads short revision plans from Gemini output', () => {
+    const review = normalizeAiReviewResponse({
+      overallScore: 3.5,
+      scores: [
+        { key: 'story', label: '이야기·플롯', score: 3.8, reason: 'clear' },
+        { key: 'character', label: '인물', score: 3, reason: 'clear' },
+        { key: 'pacing', label: '호흡·전개', score: 3, reason: 'clear' },
+        { key: 'problem', label: '문제', score: 3.9, reason: 'clear' },
+        { key: 'emotion', label: '감정선', score: 2.9, reason: 'clear' },
+        { key: 'visuality', label: '시장성', score: 3.8, reason: 'clear' },
+        { key: 'worldbuilding', label: '세계관', score: 3.8, reason: 'clear' }
+      ],
+      summary: 'ok',
+      strengths: [{ title: 'good', body: 'body', evidence: [], suggestions: [] }],
+      risks: [{ title: 'risk', body: 'body', evidence: [], suggestions: [] }],
+      revisionPlan: ['문제 제시를 선명하게 다듬는다.'],
+      audienceRead: 'ok',
+      partCardNotes: []
+    })
+
+    expect(review.scores[3]?.key).toBe('prose')
+    expect(review.scores[5]?.key).toBe('marketability')
+    expect(review.revisionPlan).toHaveLength(3)
   })
 })
 

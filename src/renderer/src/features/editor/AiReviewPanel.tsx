@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/react'
 import { ArrowLeft, RefreshCcw } from 'lucide-react'
 import type { AiReviewResponse, ReviewAudience, ReviewFocusKey, ReviewFormat } from '@shared/aiReview'
 import { REVIEW_FOCUS_KEYS } from '@shared/aiReview'
 import type { Item, Project } from '@shared/types'
 import { requestAiReview } from '../../lib/aiReview'
+import { loadStoredAiReview, saveStoredAiReview } from '../../lib/aiReviewStorage'
 import { useProjectBoardNodes } from '../../lib/boards'
 import { useItems } from '../../lib/items'
 import { linkedPartCards } from './aiReviewContext'
@@ -30,7 +31,7 @@ export function AiReviewPanel({ editor, project, item, onClose }: AiReviewPanelP
   const [referenceQuery, setReferenceQuery] = useState('')
   const [referenceDocuments, setReferenceDocuments] = useState<readonly string[]>([])
   const [additionalGuidance, setAdditionalGuidance] = useState('')
-  const [result, setResult] = useState<AiReviewResponse | null>(null)
+  const [result, setResult] = useState<AiReviewResponse | null>(() => loadStoredAiReview(item.id))
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const docs = useMemo(
@@ -45,6 +46,10 @@ export function AiReviewPanel({ editor, project, item, onClose }: AiReviewPanelP
     () => linkedPartCards(nodes ?? [], items ?? [], item.id),
     [nodes, items, item.id]
   )
+
+  useEffect(() => {
+    setResult(loadStoredAiReview(item.id))
+  }, [item.id])
 
   function toggleFocus(key: ReviewFocusKey): void {
     setFocus((current) =>
@@ -72,6 +77,7 @@ export function AiReviewPanel({ editor, project, item, onClose }: AiReviewPanelP
         referenceDocuments: [...referenceDocuments],
         additionalGuidance
       })
+      saveStoredAiReview(item.id, next)
       setResult(next)
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : 'AI 리뷰를 생성하지 못했습니다.')

@@ -15,8 +15,10 @@ import { useSyncMentionLinks } from '../../lib/links'
 import { useAutoSnapshot } from '../../lib/snapshots'
 import { EditorToolbar } from './EditorToolbar'
 import { DocTools } from './DocTools'
+import { CharacterCountFooter } from './CharacterCountFooter'
 import { useDebouncedEffect } from './useDebounced'
 import { useEditorPrefs, fontStack, platformGoal } from '../../store/editorPrefs'
+import { characterCountForMode, countText } from '../../lib/count'
 import { createMention, type MentionSource } from './mention/mention'
 import { SearchExtension } from './search/searchExtension'
 import { SearchPanel } from './search/SearchPanel'
@@ -84,6 +86,10 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
   const [charNoSpace, setCharNoSpace] = useState(0)
   const [searchOpen, setSearchOpen] = useState(false)
   const goal = platformGoal(prefs.platform)
+  const displayedCount = characterCountForMode(
+    { chars: charCount, charsNoSpace: charNoSpace, words: 0 },
+    prefs.characterCountMode
+  )
   const loadedFor = useRef<string | null>(null)
 
   // 멘션 후보 홀더 — 에디터는 1회 생성되므로 ref로 최신 아이템 목록을 전달
@@ -155,13 +161,14 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
     if (!editor || !dirty) return
     const json = editor.getJSON() as RichDoc
     const text = editor.getText()
+    const count = countText(text)
     save.mutate({
       itemId: item.id,
       projectId: project.id,
       content: json,
       text_plain: text,
-      word_count: text.trim() ? text.trim().split(/\s+/).length : 0,
-      char_count: editor.storage.characterCount.characters()
+      word_count: count.words,
+      char_count: count.chars
     })
     syncLinks.mutate({ fromItem: item.id, toItemIds: collectMentionIds(json) })
     // 저장될 때마다 자동 버전 기록 (간격·변경 조건은 훅 내부에서 판단)
@@ -193,7 +200,7 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
     <div className="flex h-full flex-col">
       {editor && (
         <div className="no-scrollbar flex items-stretch overflow-x-auto border-b border-border">
-          <EditorToolbar editor={editor} charCount={charCount} />
+          <EditorToolbar editor={editor} charCount={displayedCount} />
           <div className="flex shrink-0 items-center border-l border-border px-2">
             <DocTools
               editor={editor}
@@ -238,16 +245,14 @@ export function DocumentEditor({ project, item }: Props): JSX.Element {
           <EditorContent editor={editor} />
         </div>
       </div>
-      <div className="flex items-center gap-3 border-t border-border px-4 py-1.5 text-xs text-text-faint">
-        <span>{charCount.toLocaleString()} 자</span>
-        <span>공백 제외 {charNoSpace.toLocaleString()}</span>
-        {goal > 0 && (
-          <span className={charNoSpace >= goal ? 'text-ok' : ''}>
-            목표 {goal.toLocaleString()}자 · {Math.round((charNoSpace / goal) * 100)}%
-          </span>
-        )}
-        <span className="ml-auto">{dirty ? '저장 중…' : '저장됨'}</span>
-      </div>
+      <CharacterCountFooter
+        mode={prefs.characterCountMode}
+        displayedCount={displayedCount}
+        goal={goal}
+        goalCount={charNoSpace}
+        dirty={dirty}
+        onModeChange={(characterCountMode) => prefs.set({ characterCountMode })}
+      />
     </div>
   )
 }

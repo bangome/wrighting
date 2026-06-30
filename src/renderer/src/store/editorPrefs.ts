@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { CharacterCountMode } from '../lib/count'
 
 /** 본문 글꼴 선택지 (한글 집필 기준) */
 export const FONT_FAMILIES: { value: string; label: string; stack: string }[] = [
@@ -39,6 +40,7 @@ interface EditorPrefs {
   lineHeight: number
   /** 연재 플랫폼 프리셋 (PLATFORMS.value) — 회차 분량 목표 */
   platform: string
+  characterCountMode: CharacterCountMode
   set: (patch: Partial<Omit<EditorPrefs, 'set'>>) => void
 }
 
@@ -53,7 +55,8 @@ const DEFAULTS: Stored = {
   smartQuotes: true,
   fontFamily: 'sans',
   lineHeight: 1.8,
-  platform: 'none'
+  platform: 'none',
+  characterCountMode: 'without-space'
 }
 
 function load(): Stored {
@@ -75,10 +78,28 @@ export const useEditorPrefs = create<EditorPrefs>((set, get) => ({
   ...load(),
   set: (patch) => {
     set(patch)
-    const { fontScale, focusMode, spellcheck, smartQuotes, fontFamily, lineHeight, platform } = get()
+    const {
+      fontScale,
+      focusMode,
+      spellcheck,
+      smartQuotes,
+      fontFamily,
+      lineHeight,
+      platform,
+      characterCountMode
+    } = get()
     localStorage.setItem(
       KEY,
-      JSON.stringify({ fontScale, focusMode, spellcheck, smartQuotes, fontFamily, lineHeight, platform })
+      JSON.stringify({
+        fontScale,
+        focusMode,
+        spellcheck,
+        smartQuotes,
+        fontFamily,
+        lineHeight,
+        platform,
+        characterCountMode
+      })
     )
   }
 }))
